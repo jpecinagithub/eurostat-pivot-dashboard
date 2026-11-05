@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>EUROPIVOT · Spike T00 — arquitectura sin backend</title>
+<style>body{font-family:system-ui;margin:2rem;background:#0b1220;color:#e5e7eb}pre{white-space:pre-wrap;background:#111827;padding:1rem;border-radius:8px;font-size:13px;line-height:1.5}</style>
+</head>
+<body>
+<h1>EUROPIVOT · Spike T00</h1>
+<p>Recorrido completo desde el navegador, sin backend: catálogo → esquema completo (SDMX) → esquema acotado (Statistics) → ES+FR → presupuesto → datos.</p>
+<pre id="report">Ejecutando…</pre>
+<script>
+const report = { steps: [], origin: location.origin, ua: navigator.userAgent };
+const el = document.getElementById('report');
+const render = () => { el.textContent = JSON.stringify(report, null, 2); };
+const step = (name, data) => { report.steps.push({ name, ...data }); render(); };
+
+async function timedFetch(url, opts) {
+  const t0 = performance.now();
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  return { res, text, ms: Math.round(performance.now() - t0), bytes: new Blob([text]).size };
+}
+
+(async () => {
+  // 1 · CATÁLOGO: TOC TXT desde el navegador (¿CORS?)
+  try {
+    const { res, text, ms, bytes } = await timedFetch('https://ec.europa.eu/eurostat/api/dissemination/catalogue/toc/txt?lang=EN');
+    const lines = text.split('\n');
+    const hit = lines.find(l => l.toLowerCase().includes('nama_10_gdp'));
+    step('1_catalogue_toc_txt', { ok: res.ok, http: res.status, ms, bytes, lineas: lines.length, encuentra_nama_10_gdp: Boolean(hit) });
+  } catch (e) {
+    step('1_catalogue_toc_txt', { ok: false, error: String(e), nota: 'fetch rechazado en navegador (CORS o red)' });
+  }
+
+  // 2 · ESQUEMA COMPLETO vía SDMX 2.1 content constraint (XML)
+  let sdmxCounts = null;
+  try {
+    const { res, text, ms, bytes } = await timedFetch('https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/contentconstraint/ESTAT/NAMA_10_GDP/latest');
+    const doc = new DOMParser().parseFromString(text, 'text/xml');
+    const counts = {};
+    const ejemplos = {};
+    for (const kv of doc.getElementsByTagName('*')) {
+      if (kv.localName !== 'KeyValue') continue;
+      const comp = kv.getAttribute('id');
+      const values = [];
+      for (const m of kv.getElementsByTagName('*')) if (m.localName === 'Value') values.push(m.textContent.trim());
+      counts[comp] = (counts[comp] || 0) + values.length;
+      ejemplos[comp] = values.slice(0, 3);
+    }
+    sdmxCounts = counts;
+    step('2_schema_sdmx21_contentconstraint', { ok: res.ok, http: res.status, ms, bytes, categorias_por_dimension: counts, ejemplos });
+  } catch (e) {
+    step('2_schema_sdmx21_contentconstraint', { ok: false, error: String(e) });
+  }
+
+  // 3 · ESQUEMA ACOTADO vía Statistics: geoLevel=country + lastTimePeriod=1 (sin filtrar unit/na_item)
+  try {
+    const { res, text, ms, bytes } = await timedFetch('https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/nama_10_gdp?format=JSON&lang=EN&geoLevel=country&lastTimePeriod=1');
+    const j = JSON.parse(text);
+    const counts = {};
+    for (const dim of j.id || []) counts[dim] = Object.keys(j.dimension[dim].category.index).length;
+    step('3_schema_statistics_acotada', { ok: res.ok, http: res.status, ms, bytes, dims: j.id, categorias_por_dimension: counts, valores: Object.keys(j.value || {}).length });
+  } catch (e) {
+    step('3_schema_statistics_acotada', { ok: false, error: String(e) });
+  }
+
+  // 4 · RECORRIDO: elegir ES+FR con el esquema SDMX, estimar y pedir datos
+  try {
+    const seleccion = { freq: ['A'], unit: ['CP_MEUR'], na_item: ['B1GQ'], geo: ['ES', 'FR'], periodos: 10 };
+    const estimacion = Object.values(seleccion).reduce((acc, v) => acc * (Array.isArray(v) ? v.length : v), 1);
+    const url = 'https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/nama_10_gdp?format=JSON&lang=EN&na_item=B1GQ&unit=CP_MEUR&geo=ES&geo=FR&lastTimePeriod=10';
+    const { res, text, ms, bytes } = await timedFetch(url);
+    const j = JSON.parse(text);
+    const tiempos = Object.keys(j.dimension.time.category.index).sort();
+    step('4_recorrido_ES_FR', { ok: res.ok, http: res.status, ms, bytes, celdas_estimadas: estimacion, valores_recibidos: Object.keys(j.value || {}).length, periodos: [tiempos[0], tiempos[tiempos.length - 1]], updated: j.updated });
+  } catch (e) {
+    step('4_recorrido_ES_FR', { ok: false, error: String(e) });
+  }
+
+  // 5 · SDMX 3.0 content constraint (la otra vía de esquema)
+  try {
+    const { res, ms } = await timedFetch('https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/structure/contentconstraint/ESTAT/NAMA_10_GDP/1.0');
+    step('5_schema_sdmx30_contentconstraint', { ok: res.ok, http: res.status, ms });
+  } catch (e) {
+    step('5_schema_sdmx30_contentconstraint', { ok: false, error: String(e) });
+  }
+
+  report.done = true;
+  step('SPIKE DONE', {});
+})();
+</script>
+</body>
+</html>
