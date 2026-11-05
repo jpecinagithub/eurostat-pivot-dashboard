@@ -10,7 +10,11 @@ Las constantes oficiales están en `eurostat.ts`.
   tidy (jsonstat-toolkit + strides); ausencia ≠ 0; status como columna con
   textos de la propia respuesta. Ojo: `OBS_COUNT` es el total del dataset
   completo, no de la extracción. Aquí vivirán además:
-- **Catalogue Service** (T04): TOC/metabase cacheados, búsqueda, árbol de temas.
+- **Catalogue Service** ✅ **T04** (`catalogueService.ts` + generador
+  `scripts/build-catalogue-index.mjs`): la Catalogue API no tiene CORS
+  (puerta T00) → índice estático versionado generado en build desde el TOC
+  (10.408 entradas; 276 KB gzip; `prebuild` lo regenera con red de
+  seguridad). Búsqueda normalizada, temas, metadatos del TOC (RF-01/22).
 - **Schema Service** (T05): content constraint/DSD → `DatasetSchema` versionado.
   La vía (directa desde navegador vs índice estático de build) la decide la
   puerta **T00** (§4.5).

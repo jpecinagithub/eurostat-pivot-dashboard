@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "catalogue:build": "node scripts/build-catalogue-index.mjs",
+    "prebuild": "node scripts/build-catalogue-index.mjs --soft"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.106.1",
