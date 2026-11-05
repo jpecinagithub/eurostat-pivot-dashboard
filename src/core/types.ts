@@ -85,6 +85,10 @@ export interface DatasetCard {
   aggregateNature?: string
   exampleQuery?: string
   verifiedAt?: string
+  /** Frecuencia del dataset según su constraint (A/Q/M). */
+  freq?: string
+  /** Dimensiones y roles según DSD/content constraint (§3.13). */
+  dims?: { id: DimId; role?: DimRole }[]
 }
 
 export type VizType = 'table' | 'line' | 'bar' | 'map' | 'ranking' | 'kpi'
