@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "catalogue:build": "node scripts/build-catalogue-index.mjs",
-    "prebuild": "node scripts/build-catalogue-index.mjs --soft"
+    "prebuild": "node scripts/build-catalogue-index.mjs --soft",
+    "test:e2e": "npm run build && node scripts/e2e.mjs",
+    "smoke:live": "node scripts/smoke-live-api.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.106.1",
@@ -29,6 +31,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "^31.0.0",
     "oxlint": "^1.90.0",
+    "playwright-core": "^1.64.1",
     "tailwindcss": "^4.3.4",
     "typescript": "~7.0.2",
     "vite": "^8.3.6",
