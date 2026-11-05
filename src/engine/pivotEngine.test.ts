@@ -84,7 +84,12 @@ describe('Pivot Engine — repivotar es recalcular, no re-consultar (C4/RF-08)',
     // demo tiene freq y unit constantes → no lanza; nama con 2 unidades sí.
     const twoUnits = [
       ...nama.rows,
-      ...nama.rows.map((r) => ({ ...r, unit: 'CLV20_MEUR', value: 1 })),
+      ...nama.rows.map((r) => {
+        const copy = { ...r }
+        copy['unit'] = 'CLV20_MEUR'
+        copy['value'] = 1
+        return copy
+      }),
     ]
     expect(() =>
       pivot(twoUnits, nama.schema, { rows: ['geo'], columns: ['time'] }),
