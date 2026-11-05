@@ -3,10 +3,20 @@ import { CURATED_PACK } from '../config/curatedPack'
 import { geoLabelEs } from '../config/labelsEs'
 import { fmtEs } from '../engine/derivedMetrics'
 import type { PivotTable } from '../engine/pivotEngine'
+import {
+  buildChoropleth,
+  europeProjector,
+  geoJsonToShapes,
+  nutsLevelForCodes,
+  CLASS_COLORS,
+  NO_DATA_COLOR,
+  type RegionShape,
+} from '../features/mapModel'
 import { buildPanelView } from '../features/panelModel'
 import { buildPanelUrl } from '../features/panelUrlCodec'
 import { t, type UiLang } from '../i18n/dictionaries'
 import { EurostatApiError, fetchDataset } from '../services/eurostatClient'
+import { fetchNutsGeoJson } from '../services/geoService'
 import { parseJsonStat, type ParsedDataset } from '../services/jsonstatParser'
 
 /** Etiqueta legible de una clave de fila/columna: nombre ES de geo si
@@ -168,6 +178,92 @@ function LineChart({
   )
 }
 
+/**
+ * Mapa coroplético SVG propio (T10, RF-16): geometrías GISCO/NUTS
+ * proyectadas en cliente, join literal por código, clases de color con
+ * leyenda numérica y «sin datos» distinguible. Los agregados no se
+ * pintan: van en la lista de al lado. La tabla sigue siendo la gemela
+ * accesible del mapa (RNF-06).
+ */
+function ChoroplethMap({
+  shapes,
+  table,
+  period,
+  labelFor,
+  uiLang,
+}: {
+  shapes: Map<string, RegionShape>
+  table: PivotTable
+  period: string
+  labelFor: (code: string) => string
+  uiLang: UiLang
+}) {
+  const choro = useMemo(() => buildChoropleth(table, shapes, period), [table, shapes, period])
+  if (!choro) return null
+  const proj = europeProjector()
+  const ordered = [...shapes.values()].sort((a, b) => {
+    const fa = choro.fills.has(a.id) ? 1 : 0
+    const fb = choro.fills.has(b.id) ? 1 : 0
+    return fa - fb
+  })
+  return (
+    <figure className="mt-4">
+      <svg
+        viewBox={`0 0 ${proj.width} ${proj.height}`}
+        className="w-full rounded-xl border bg-[#0d1122]"
+        role="img"
+        aria-label={`${t(uiLang, 'panel.map.title')}: ${period}`}
+      >
+        {ordered.map((s) => {
+          const fill = choro.fills.get(s.id)
+          return (
+            <path
+              key={s.id}
+              d={s.path}
+              fill={fill ? CLASS_COLORS[fill.classIndex] : NO_DATA_COLOR}
+              stroke="rgba(255,255,255,0.22)"
+              strokeWidth={0.5}
+            >
+              <title>
+                {labelFor(s.id)}: {fill ? fmtEs(fill.value) : t(uiLang, 'panel.map.noData')}
+              </title>
+            </path>
+          )
+        })}
+      </svg>
+      <figcaption className="mt-1 text-xs opacity-80">
+        <span className="flex flex-wrap gap-x-4 gap-y-1">
+          {choro.classes.map((c, i) => (
+            <span key={i}>
+              <span
+                aria-hidden
+                className="mr-1 inline-block h-2 w-2 rounded-sm"
+                style={{ background: c.color }}
+              />
+              {fmtEs(c.from)} – {fmtEs(c.to)}
+            </span>
+          ))}
+          <span>
+            <span
+              aria-hidden
+              className="mr-1 inline-block h-2 w-2 rounded-sm"
+              style={{ background: NO_DATA_COLOR }}
+            />
+            {t(uiLang, 'panel.map.noData')} ({choro.noData})
+          </span>
+        </span>
+        {choro.aside.length > 0 && (
+          <span className="mt-1 block">
+            {t(uiLang, 'panel.map.aside')}:{' '}
+            {choro.aside.map((a) => `${labelFor(a.code)}: ${fmtEs(a.value)}`).join(' · ')}
+          </span>
+        )}
+        <span className="mt-1 block opacity-70">{t(uiLang, 'panel.map.geoSource')}</span>
+      </figcaption>
+    </figure>
+  )
+}
+
 function errorKey(error: unknown): string {
   if (error instanceof EurostatApiError) {
     switch (error.kind) {
@@ -201,6 +297,9 @@ export default function Panel() {
   const [loading, setLoading] = useState(false)
   const [layout, setLayout] = useState<{ rows: string[]; columns: string[] } | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [mapShapes, setMapShapes] = useState<Map<string, RegionShape> | null>(null)
+  const [mapError, setMapError] = useState(false)
+  const [mapPeriod, setMapPeriod] = useState<string | null>(null)
 
   useEffect(() => {
     if (!spec) return
@@ -232,6 +331,41 @@ export default function Panel() {
         : null,
     [parsed, spec, layout, card],
   )
+
+  // --- Mapa (T10/RF-16): solo con la geografía sola en filas y el
+  // tiempo en columnas; el nivel NUTS sale de los propios códigos.
+  const geoRowCodes =
+    view && view.table.rowDims.length === 1 && view.table.rowDims[0] === 'geo'
+      ? view.table.rowKeys.map((k) => k[0])
+      : null
+  const mapLevel = geoRowCodes ? nutsLevelForCodes(geoRowCodes) : null
+  const mapPeriods =
+    view && view.table.colDims.includes('time')
+      ? view.table.colKeys.map((ck) => ck[view.table.colDims.indexOf('time')])
+      : []
+  const effectiveMapPeriod =
+    mapPeriod && mapPeriods.includes(mapPeriod)
+      ? mapPeriod
+      : mapPeriods[mapPeriods.length - 1]
+
+  useEffect(() => {
+    if (mapLevel === null) {
+      setMapShapes(null)
+      return
+    }
+    let alive = true
+    setMapError(false)
+    fetchNutsGeoJson(mapLevel)
+      .then((fc) => {
+        if (alive) setMapShapes(geoJsonToShapes(fc, europeProjector()))
+      })
+      .catch(() => {
+        if (alive) setMapError(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [mapLevel])
 
   if (!spec) return null
 
@@ -304,6 +438,51 @@ export default function Panel() {
           )}
 
           <LineChart table={view.table} labelFor={(rk) => keyLabel(parsed, view.table.rowDims, rk)} />
+
+          {geoRowCodes && mapPeriods.length > 0 && (
+            <div>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <h3 className="text-sm font-semibold">{t(uiLang, 'panel.map.title')}</h3>
+                <label className="text-xs opacity-80">
+                  {t(uiLang, 'panel.map.period')}{' '}
+                  <select
+                    value={effectiveMapPeriod}
+                    onChange={(e) => setMapPeriod(e.target.value)}
+                    className="rounded-md border bg-[#151b38] px-2 py-1 text-xs"
+                  >
+                    {mapPeriods.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {mapError ? (
+                <p className="mt-2 text-sm text-[#fca5a5]" role="alert">
+                  {t(uiLang, 'panel.map.error')}
+                </p>
+              ) : !mapShapes ? (
+                <p className="mt-2 text-sm opacity-80" role="status">
+                  {t(uiLang, 'panel.map.loading')}
+                </p>
+              ) : (
+                effectiveMapPeriod && (
+                  <ChoroplethMap
+                    shapes={mapShapes}
+                    table={view.table}
+                    period={effectiveMapPeriod}
+                    uiLang={uiLang}
+                    labelFor={(code) => keyLabel(parsed, ['geo'], [code])}
+                  />
+                )
+              )}
+            </div>
+          )}
+          {!geoRowCodes &&
+            (view.table.rowDims.includes('geo') || view.table.colDims.includes('geo')) && (
+              <p className="mt-3 text-xs opacity-70">{t(uiLang, 'panel.map.needLayout')}</p>
+            )}
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
