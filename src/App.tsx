@@ -1,4 +1,5 @@
 import { Analytics } from '@vercel/analytics/react'
+import Builder from './components/Builder'
 import Home from './components/Home'
 import { t } from './i18n/dictionaries'
 import { useAppStore } from './store/dashboardStore'
@@ -45,6 +46,7 @@ export default function App() {
         </p>
 
         <Home />
+        <Builder />
       </main>
 
       <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs opacity-70">
