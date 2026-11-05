@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CURATED_PACK } from '../config/curatedPack'
 import type { PivotSpec, VizType } from '../core/types'
 import { dimLabelEs, geoLabelEs } from '../config/labelsEs'
@@ -14,6 +14,17 @@ import {
   type RegionShape,
 } from '../features/mapModel'
 import { buildPanelView } from '../features/panelModel'
+import {
+  buildWorkbook,
+  downloadBlob,
+  downloadText,
+  fileStem,
+  gridToDelimited,
+  labelledGrid,
+  svgToPng,
+  tidyToDelimited,
+  type ExportContext,
+} from '../features/exportModel'
 import { buildPanelUrl } from '../features/panelUrlCodec'
 import { t, type UiLang } from '../i18n/dictionaries'
 import { EurostatApiError, fetchDataset } from '../services/eurostatClient'
@@ -98,6 +109,7 @@ function LineChart({
   return (
     <figure className="mt-4">
       <svg
+        data-export="chart"
         viewBox={`0 0 ${W} ${H}`}
         className="w-full rounded-xl border bg-[#10142a]"
         role="img"
@@ -210,6 +222,7 @@ function ChoroplethMap({
   return (
     <figure className="mt-4">
       <svg
+        data-export="map"
         viewBox={`0 0 ${proj.width} ${proj.height}`}
         className="w-full rounded-xl border bg-[#0d1122]"
         role="img"
@@ -351,6 +364,25 @@ export default function Panel({
   const view = viewResult?.view ?? null
   const viewError = viewResult?.error ?? null
 
+  // ——— Exportación T12 (RF-21): foto fija citable del panel ———
+  const sectionRef = useRef<HTMLElement>(null)
+  const [exporting, setExporting] = useState(false)
+  const exportCtx = (): ExportContext | null => {
+    if (!parsed || !spec || !view) return null
+    return {
+      dataset: spec.dataset,
+      title: card?.titleEs ?? spec.dataset,
+      unitLabel: spec.filters['unit']?.join(', '),
+      exportedAt: new Date(),
+      updated: parsed.meta.updated,
+      statusLabels: parsed.meta.statusLabels,
+      sentence: view.sentence,
+      meanLast: view.meanLast ? { value: view.meanLast.value, n: view.meanLast.n } : undefined,
+      referenceLast: view.referenceLast ? { value: view.referenceLast.value } : undefined,
+      lastPeriod: view.lastPeriod,
+    }
+  }
+
   // --- Mapa (T10/RF-16): solo con la geografía sola en filas y el
   // tiempo en columnas; el nivel NUTS sale de los propios códigos.
   const geoRowCodes =
@@ -411,7 +443,7 @@ export default function Panel({
   }
 
   return (
-    <section aria-label={t(uiLang, 'panel.title')} className={propSpec ? '' : 'mt-12'}>
+    <section ref={sectionRef} aria-label={t(uiLang, 'panel.title')} className={propSpec ? '' : 'mt-12'}>
       <h2 className="text-lg font-semibold tracking-tight">
         {card?.titleEs ?? spec.dataset}{' '}
         <code className="font-mono text-sm font-normal opacity-70">{spec.dataset}</code>
@@ -436,6 +468,96 @@ export default function Panel({
               )
             : t(uiLang, 'panel.err.generic')}
         </p>
+      )}
+
+      {view && parsed && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide opacity-70">
+            {t(uiLang, 'panel.export')}:
+          </span>
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={async () => {
+              const ctx = exportCtx()
+              if (!ctx || !parsed || !view) return
+              setExporting(true)
+              try {
+                const grid = labelledGrid(view.table, (dims, tuple) => keyLabel(parsed, dims, tuple))
+                const blob = await buildWorkbook(
+                  parsed.rows,
+                  parsed.schema.dims.map((d) => d.id),
+                  grid,
+                  ctx,
+                )
+                downloadBlob(blob, `${fileStem(ctx.dataset, 'excel', ctx.exportedAt)}.xlsx`)
+              } finally {
+                setExporting(false)
+              }
+            }}
+            className="rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+          >
+            {t(uiLang, 'panel.export.excel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const ctx = exportCtx()
+              if (!ctx || !parsed) return
+              downloadText(
+                tidyToDelimited(parsed.rows, parsed.schema.dims.map((d) => d.id), ctx, ','),
+                `${fileStem(ctx.dataset, 'datos', ctx.exportedAt)}.csv`,
+              )
+            }}
+            className="rounded-md border px-3 py-1.5 text-xs font-medium"
+          >
+            {t(uiLang, 'panel.export.csvData')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const ctx = exportCtx()
+              if (!ctx || !parsed || !view) return
+              const grid = labelledGrid(view.table, (dims, tuple) => keyLabel(parsed, dims, tuple))
+              downloadText(
+                gridToDelimited(grid, ctx, ','),
+                `${fileStem(ctx.dataset, 'tabla', ctx.exportedAt)}.csv`,
+              )
+            }}
+            className="rounded-md border px-3 py-1.5 text-xs font-medium"
+          >
+            {t(uiLang, 'panel.export.csvTable')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const ctx = exportCtx()
+              if (!ctx || !parsed) return
+              downloadText(
+                tidyToDelimited(parsed.rows, parsed.schema.dims.map((d) => d.id), ctx, '\t'),
+                `${fileStem(ctx.dataset, 'datos', ctx.exportedAt)}.tsv`,
+                'text/tab-separated-values;charset=utf-8',
+              )
+            }}
+            className="rounded-md border px-3 py-1.5 text-xs font-medium"
+          >
+            {t(uiLang, 'panel.export.tsvData')}
+          </button>
+          {(viz === undefined || viz === 'line' || viz === 'map') && (
+            <button
+              type="button"
+              onClick={async () => {
+                const ctx = exportCtx()
+                const svg = sectionRef.current?.querySelector<SVGSVGElement>('svg[data-export]')
+                if (!ctx || !svg) return
+                await svgToPng(svg, `${fileStem(ctx.dataset, 'grafico', ctx.exportedAt)}.png`)
+              }}
+              className="rounded-md border px-3 py-1.5 text-xs font-medium"
+            >
+              {t(uiLang, 'panel.export.png')}
+            </button>
+          )}
+        </div>
       )}
 
       {view && parsed && (

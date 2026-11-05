@@ -86,6 +86,8 @@ describe('Panel — pipeline completo con fixture real', () => {
       interval: 100,
     })
 
+    // T12: la fila de export está presente con el Excel.
+    expect(container.textContent).toContain('Excel (.xlsx)')
     // Contexto RF-31: unidad, actualizado (de la respuesta) y fuente.
     expect(container.textContent).toContain('CP_MEUR')
     expect(container.textContent).toContain('Actualizado')
