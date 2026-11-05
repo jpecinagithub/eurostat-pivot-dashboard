@@ -99,3 +99,62 @@ el dashboard» para componer varios paneles → «Compartir» para el enlace
 vivo o «Exportar» para la foto fija citable en Excel/CSV/PNG.
 
 *Proyecto de Jon Peciña — jpecina@gmail.com. Datos: © Eurostat; geometrías: © EuroGeographics / GISCO.*
+
+## 7. Ronda QA post-entrega (2026-11-05, tarde)
+
+Jon auditó la producción desde el navegador (Chromium/Windows, perfiles
+aislados, fallos de red y almacenamiento inducidos; informe y scripts en
+su poder) y reprodujo **tres fallos prioritarios y siete puntos muertos**
+que las 13 pruebas E2E existentes — que pasaban — no cubrían. Todos
+corregidos el mismo día, cada uno con su regresión:
+
+**Prioritarios**
+1. **Abrir un dashboard compartido sobrescribía el propio.** Ahora el
+   enlace entra en *solo consulta*: no se persiste ni al mostrarlo, ni
+   al editarlo en pantalla, ni al descartarlo; la cabecera lo dice y
+   solo el botón expreso «Guardar una copia en mi navegador» lo
+   convierte en propio. Regresión extremo a extremo: el guardado
+   «Mi trabajo original» sobrevive a abrir «Proyecto ajeno».
+2. **Página en blanco con localStorage denegado.** Referenciar el
+   objeto de almacenamiento lanzaba la excepción *antes* del
+   try/catch, al crear el store. Ahora todo acceso a localStorage se
+   resuelve dentro de try/catch y la app arranca y funciona en
+   memoria sin almacenamiento.
+3. **Página en blanco por una fecha de guardado ilegible**
+   («Invalid time value» al formatear). La fecha se valida al leer
+   lo persistido (una ilegible se descarta y el dashboard se recupera
+   sin fecha), el formateo es defensivo y cada sección principal
+   (constructor, panel, dashboard) queda aislada por una frontera de
+   error: un fallo de pintado ya no tumba la página entera.
+
+**Secundarios**
+- Descargas con salida visible: el esquema del constructor ofrece
+  «Reintentar» para el mismo dataset; la descarga de datos tiene
+  límite de 30 s, «Cancelar» durante la carga y «Reintentar» tras el
+  error (los filtros se conservan).
+- Móvil: elegir un dataset (tarjeta o búsqueda) lleva el scroll y el
+  foco al encabezado del constructor.
+- El enlace de dashboard conserva título, visualización y ancho de
+  cada panel; los enlaces antiguos (sin metadatos) siguen abriendo.
+- El botón PNG solo está activo cuando hay un gráfico o mapa
+  exportable en pantalla; con cero observaciones, todas las
+  exportaciones se desactivan.
+- Dos fichas empezaban vacías por el primer valor genérico de una
+  dimensión (mismo patrón que el defecto de `isoc_eb_ai`): deuda
+  pública queda fijada al sector S13 y costes laborales al agregado
+  NACE B-S_X_O — ambos verificados contra la API viva (3 valores en
+  la ventana de prueba frente a 0 con el valor genérico).
+- Offline: el service worker cachea las respuestas de la API
+  (NetworkFirst: con red manda lo fresco; sin red, la última copia
+  consultada, que el panel fecha con su `updated` oficial).
+
+**Evidencia de la ronda:** 142/142 tests unitarios e integración
+(6 regresiones nuevas), E2E 13/13, lint y build en verde, smoke de
+API en vivo PASS. Nota de harness: el E2E bloquea ahora el service
+worker a nivel de contexto (`serviceWorkers: 'block'`) porque los
+fetches internos de un SW no pasan por la interceptación de
+Playwright en esta versión — el SW se verifica por el contenido de
+`dist/sw.js`, que contiene las tres cachés runtime nuevas.
+
+**Estado:** correcciones en el repo (rama `main`); la producción
+seguirá sirviendo la build anterior hasta que Jon redespliegue.

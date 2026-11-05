@@ -352,3 +352,9 @@ Si la spec es ambigua, marca [NECESITA ACLARACIÓN] y pregunta: no inventes.
 
 ---
 *Fuentes del análisis: documentación oficial Eurostat (Getting started, API Statistics, Asynchronous API, Catalogue API, SDMX 2.1/3.0, GISCO/NUTS, copyright notice) consultada 2026-11-05 + verificación en vivo de Statistics API (DEMO_R_D3DENS). Informe completo de investigación disponible en el workspace. Verificación v2: ESMS oficiales Eurostat de cultura/deporte (familias IPCA ECOICOP v1 `prc_hicp_midx/aind` vs v2 `prc_hicp_minr/ainr`) y guía oficial Asynchronous API (413/EXTRACTION_TOO_BIG, polling de estado), consultados 2026-11-05.*
+
+---
+
+## Ajuste QA post-T16 (2026-11-05) — invariantes nuevos
+
+Tras la auditoría de Jon en producción (3 fallos prioritarios + 7 secundarios, todos corregidos con regresión; detalle en `INFORME-FINAL.md` §7): (1) un dashboard abierto desde enlace es SOLO CONSULTA — persiste únicamente por acción expresa («Guardar una copia»); (2) todo acceso a localStorage se resuelve dentro de try/catch — sin almacenamiento, la app funciona en memoria; (3) `savedAt` se valida al deserializar y las secciones principales se aíslan con fronteras de error; (4) el enlace `?d=` conserva título/viz/ancho por panel, compatible con enlaces antiguos; (5) toda descarga tiene salida visible: 30 s de límite, cancelar y reintentar; (6) el SW cachea la API (NetworkFirst) para recuperar offline el último panel consultado.

@@ -10,8 +10,9 @@ exportación).
 
 - **Spec (fuente de verdad):** [`SDD-MASTER.md`](./SDD-MASTER.md) — constitución,
   requisitos RF en formato EARS, plan técnico y tareas T00–T16.
-- **Estado:** T01–T15 hechas (ver la tabla de tareas del SDD). Queda T16:
-  despliegue en Vercel por parte de Jon y smoke sobre la URL pública.
+- **Estado:** plan T01–T16 cerrado y en producción (2026-11-05) +
+  ronda QA post-entrega de Jon corregida el mismo día (ver
+  INFORME-FINAL.md §7); pendiente solo su redespliegue.
 - **Desarrollo:** `npm install` → `npm run dev` · **Tests unitarios e
   integración (Vitest + jsdom):** `npm test` · **Build:** `npm run build` ·
   **Lint:** `npm run lint`.
