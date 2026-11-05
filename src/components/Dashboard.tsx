@@ -52,6 +52,7 @@ export default function Dashboard() {
             ? ` · ${new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(dashboard.savedAt))}`
             : ''}
         </span>
+        <span className="w-full text-xs opacity-60">{t(uiLang, 'dashboard.freshNote')}</span>
         <span className="ml-auto flex gap-2">
           <button
             type="button"

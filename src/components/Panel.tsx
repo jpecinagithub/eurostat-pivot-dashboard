@@ -14,6 +14,8 @@ import {
   type RegionShape,
 } from '../features/mapModel'
 import { buildPanelView } from '../features/panelModel'
+import { useFreshness } from '../features/useFreshness'
+import { recordSeen } from '../services/freshnessService'
 import {
   buildWorkbook,
   downloadBlob,
@@ -320,6 +322,8 @@ export default function Panel({
   const [mapError, setMapError] = useState(false)
   const [mapPeriod, setMapPeriod] = useState<string | null>(null)
   const [pinned, setPinned] = useState(false)
+  const [refreshNonce, setRefreshNonce] = useState(0)
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null)
 
   useEffect(() => {
     if (!spec) return
@@ -332,7 +336,12 @@ export default function Panel({
     setLayout({ rows: spec.rows, columns: spec.columns })
     fetchDataset(spec)
       .then((raw) => {
-        if (alive) setParsed(parseJsonStat(raw, spec.dataset))
+        if (!alive) return
+        const parsedData = parseJsonStat(raw, spec.dataset)
+        // T13: el `updated` visto queda en el registro de frescura.
+        recordSeen(spec.dataset, parsedData.meta.updated)
+        setFetchedAt(Date.now())
+        setParsed(parsedData)
       })
       .catch((e: unknown) => {
         if (alive) setError(e)
@@ -343,7 +352,7 @@ export default function Panel({
     return () => {
       alive = false
     }
-  }, [spec])
+  }, [spec, refreshNonce])
 
   const card = spec ? CURATED_PACK.find((c) => c.code === spec.dataset) : undefined
   // Construir la vista NUNCA debe tumbar la app: una configuración
@@ -363,6 +372,9 @@ export default function Panel({
   }, [parsed, spec, layout, card])
   const view = viewResult?.view ?? null
   const viewError = viewResult?.error ?? null
+
+  // T13: aviso de datos más recientes (nunca se aplica solo, RF-24).
+  const { freshUpdated, clearFresh } = useFreshness(spec, parsed?.meta.updated, fetchedAt)
 
   // ——— Exportación T12 (RF-21): foto fija citable del panel ———
   const sectionRef = useRef<HTMLElement>(null)
@@ -587,6 +599,32 @@ export default function Panel({
           )}
 
           {view.sentence && <p className="mt-3 max-w-3xl text-sm leading-relaxed">{view.sentence}</p>}
+          {freshUpdated && (
+            <p
+              className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-[#fbbf24]/25 bg-[#fbbf24]/10 px-3 py-2 text-sm"
+              role="status"
+            >
+              <span>
+                {t(uiLang, 'panel.fresh.available').replace(
+                  '{date}',
+                  (() => {
+                    const d = new Date(freshUpdated)
+                    return Number.isNaN(+d) ? freshUpdated : d.toLocaleString('es-ES')
+                  })(),
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  clearFresh()
+                  setRefreshNonce((n) => n + 1)
+                }}
+                className="rounded-md bg-[linear-gradient(135deg,#f97316,#ea580c)] px-3 py-1 text-xs font-semibold text-white"
+              >
+                {t(uiLang, 'panel.fresh.reload')}
+              </button>
+            </p>
+          )}
 
           {(view.referenceLast || view.meanLast) && (
             <div className="mt-3 flex flex-wrap gap-3 text-sm">
