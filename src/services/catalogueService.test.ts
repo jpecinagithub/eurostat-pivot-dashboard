@@ -76,5 +76,7 @@ describe('catalogueService — índice real generado del TOC (T04)', () => {
     expect(hits.map((e) => e.code)).toContain('une_rt_m')
     expect(searchCatalogue(index, 'une_rt_m')[0]?.code).toBe('une_rt_m')
     expect(listThemes(index).length).toBeGreaterThanOrEqual(9)
-  })
+    // Timeout amplio: importar el índice real (10.408 entradas) bajo
+    // carga paralela puede superar los 5 s por defecto sin fallar.
+  }, 30000)
 })

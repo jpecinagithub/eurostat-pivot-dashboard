@@ -4,6 +4,7 @@ import Builder from './components/Builder'
 import Dashboard from './components/Dashboard'
 import Panel from './components/Panel'
 import Home from './components/Home'
+import { SafeSection } from './components/SafeSection'
 import { CURATED_PACK } from './config/curatedPack'
 import { dashboardFromSearch, specFromSearch } from './features/panelUrlCodec'
 import { t } from './i18n/dictionaries'
@@ -32,17 +33,26 @@ export default function App() {
     // abriendo exactamente igual que cuando se creó.
     const shared = dashboardFromSearch(window.location.search)
     if (shared) {
-      setDashboard({
-        id: 'shared',
-        name: shared.name ?? 'Mi dashboard',
-        panels: shared.specs.map((spec, i) => ({
-          id: `shared-${i}`,
-          title: CURATED_PACK.find((c) => c.code === spec.dataset)?.titleEs ?? spec.dataset,
-          viz: 'line' as const,
-          spec,
-          rect: { x: 0, y: i, w: 1, h: 1 },
-        })),
-      })
+      // P1 (QA 2026-11-05): el dashboard del enlace entra en SOLO
+      // CONSULTA (shared: true) — no sobrescribe el guardado del
+      // visitante. Título, visualización y ancho viajan en el enlace.
+      setDashboard(
+        {
+          id: 'shared',
+          name: shared.name ?? 'Mi dashboard',
+          panels: shared.panels.map((panel, i) => ({
+            id: `shared-${i}`,
+            title:
+              panel.title ??
+              CURATED_PACK.find((c) => c.code === panel.spec.dataset)?.titleEs ??
+              panel.spec.dataset,
+            viz: panel.viz ?? ('line' as const),
+            spec: panel.spec,
+            rect: { x: 0, y: i, w: panel.wide ? 2 : 1, h: 1 },
+          })),
+        },
+        { shared: true },
+      )
       setSelectedDataset(shared.specs[0].dataset)
       setBuilderSpec(shared.specs[0])
       return
@@ -89,9 +99,15 @@ export default function App() {
         </p>
 
         <Home />
-        <Builder />
-        <Panel />
-        <Dashboard />
+        <SafeSection label="constructor" fallbackText={t(uiLang, 'section.failed')}>
+          <Builder />
+        </SafeSection>
+        <SafeSection label="panel" fallbackText={t(uiLang, 'section.failed')}>
+          <Panel />
+        </SafeSection>
+        <SafeSection label="dashboard" fallbackText={t(uiLang, 'section.failed')}>
+          <Dashboard />
+        </SafeSection>
       </main>
 
       <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs opacity-70">

@@ -102,3 +102,47 @@ describe('Codec de dashboard (T11) y compatibilidad con M1', () => {
     expect(decodeDashboardParam(badWire)).toBeNull()
   })
 })
+
+describe('QA 2026-11-05 — el enlace de dashboard conserva título, vista y ancho', () => {
+  it('ida y vuelta con metadatos por panel', () => {
+    const url = buildDashboardUrl('https://europivot.example/', 'QA', [
+      { spec: M1_SPEC, title: 'Prueba QA', viz: 'table', wide: true },
+      { spec: { ...M1_SPEC, dataset: 'une_rt_m' } },
+    ])
+    const decoded = dashboardFromSearch(new URL(url).search)
+    expect(decoded?.name).toBe('QA')
+    expect(decoded?.panels[0]).toMatchObject({ title: 'Prueba QA', viz: 'table', wide: true })
+    expect(decoded?.panels[0].spec).toEqual(M1_SPEC)
+    expect(decoded?.panels[1].title).toBeUndefined()
+    expect(decoded?.panels[1].viz).toBeUndefined()
+  })
+
+  it('un enlace ANTIGUO (paneles pelados, sin metadatos) sigue abriendo', () => {
+    const legacyWire = {
+      v: 1,
+      name: 'Legado',
+      panels: [
+        {
+          v: 1,
+          d: 'nama_10_pc',
+          f: { unit: ['CP_PPS_EU27_2020_HAB'], na_item: ['B1GQ'], geo: ['ES'] },
+          t: { mode: 'last', n: 10 },
+          r: ['geo'],
+          c: ['time'],
+        },
+      ],
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify(legacyWire))
+    const param =
+      'v1.' +
+      btoa(String.fromCharCode(...bytes))
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replace(/=+$/, '')
+    const decoded = decodeDashboardParam(param)
+    expect(decoded?.name).toBe('Legado')
+    expect(decoded?.panels[0].spec.dataset).toBe('nama_10_pc')
+    expect(decoded?.panels[0].title).toBeUndefined()
+    expect(decoded?.specs).toHaveLength(1)
+  })
+})

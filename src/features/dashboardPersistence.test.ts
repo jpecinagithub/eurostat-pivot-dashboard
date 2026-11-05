@@ -89,3 +89,53 @@ describe('Persistencia del dashboard (RF-19)', () => {
     expect(loadPersistedDashboard(storage)).toBeNull()
   })
 })
+
+describe('QA 2026-11-05 — P2 almacenamiento denegado y P3 fecha ilegible', () => {
+  it('P3: una savedAt ilegible se descarta y el dashboard se recupera sin fecha', () => {
+    const raw = JSON.stringify({
+      id: 'x',
+      name: 'Recuperable',
+      savedAt: 'no-es-una-fecha',
+      panels: [
+        {
+          id: 'p1',
+          title: 'PIB',
+          viz: 'line',
+          spec: {
+            dataset: 'nama_10_gdp',
+            lang: 'EN',
+            filters: { unit: ['CP_MEUR'], na_item: ['B1GQ'], geo: ['ES'] },
+            time: { mode: 'last', n: 5 },
+            rows: ['geo'],
+            columns: ['time'],
+          },
+          rect: { x: 0, y: 0, w: 1, h: 1 },
+        },
+      ],
+    })
+    const d = deserializeDashboard(raw)
+    expect(d?.name).toBe('Recuperable')
+    expect(d?.savedAt).toBeUndefined()
+    // Y una fecha válida se conserva normalizada.
+    const okRaw = raw.replace('no-es-una-fecha', '2026-11-01T10:00:00.000Z')
+    expect(deserializeDashboard(okRaw)?.savedAt).toBe('2026-11-01T10:00:00.000Z')
+  })
+
+  it('P2: si ACCEDER a localStorage lanza, load devuelve null y persist no lanza', () => {
+    const g = globalThis as { window?: unknown }
+    const original = g.window
+    g.window = {
+      get localStorage(): never {
+        throw new Error('Storage access denied')
+      },
+    }
+    try {
+      expect(loadPersistedDashboard()).toBeNull()
+      expect(() =>
+        persistDashboard({ id: 'x', name: 'N', panels: [] } as never),
+      ).not.toThrow()
+    } finally {
+      g.window = original
+    }
+  })
+})

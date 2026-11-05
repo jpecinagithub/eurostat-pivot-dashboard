@@ -108,6 +108,12 @@ function findChromium() {
 
 /** Instala rutas interceptadas; `stats` decide la respuesta de datos. */
 async function installRoutes(page, stats, counter) {
+  // El service worker (PWA) se bloquea a nivel de contexto
+  // (serviceWorkers: 'block' en newContext): desde la ronda QA
+  // 2026-11-05 cachea la API en runtime (NetworkFirst) y los fetches
+  // internos de un SW no pasan por page.route en esta versión de
+  // Playwright. El E2E prueba la lógica de la app; el SW se verifica
+  // por su contenido generado (dist/sw.js).
   await page.route('**/api/dissemination/**', async (route) => {
     const url = route.request().url()
     if (url.includes('/statistics/')) {
@@ -153,7 +159,7 @@ async function main() {
       // ——— A) Arranque M1 + RF-08 (transponer = 0 peticiones nuevas) ———
       {
         const counter = { count: 0 }
-        const ctx = await browser.newContext()
+        const ctx = await browser.newContext({ serviceWorkers: 'block' })
         const page = await ctx.newPage()
         await installRoutes(page, jsonStats(fabricatedM1()), counter)
         await page.goto(`${BASE}/?p=${M1_PARAM}`)
@@ -170,7 +176,7 @@ async function main() {
       // ——— B) Constructor completo + ampliar = +1 extracción ———
       {
         const counter = { count: 0 }
-        const ctx = await browser.newContext()
+        const ctx = await browser.newContext({ serviceWorkers: 'block' })
         const page = await ctx.newPage()
         await installRoutes(page, jsonStats(fixture('nama_10_gdp.b1gq_cpmeur.2023-2025.json')), counter)
         await page.goto(BASE + '/')
@@ -206,7 +212,7 @@ async function main() {
       // ——— C) RF-10 estado 1: extracción demasiado grande (413) ———
       {
         const counter = { count: 0 }
-        const ctx = await browser.newContext()
+        const ctx = await browser.newContext({ serviceWorkers: 'block' })
         const page = await ctx.newPage()
         await installRoutes(
           page,
@@ -227,7 +233,7 @@ async function main() {
       // ——— D) RF-10 estado 2: extracción en preparación (asíncrona) ———
       {
         const counter = { count: 0 }
-        const ctx = await browser.newContext()
+        const ctx = await browser.newContext({ serviceWorkers: 'block' })
         const page = await ctx.newPage()
         await installRoutes(
           page,
@@ -254,7 +260,7 @@ async function main() {
       // ——— E) Fault 100: sin datos ———
       {
         const counter = { count: 0 }
-        const ctx = await browser.newContext()
+        const ctx = await browser.newContext({ serviceWorkers: 'block' })
         const page = await ctx.newPage()
         await installRoutes(
           page,

@@ -26,6 +26,8 @@ export default function Dashboard() {
   const setPanelWide = useAppStore((s) => s.setPanelWide)
   const setDashboardName = useAppStore((s) => s.setDashboardName)
   const setDashboard = useAppStore((s) => s.setDashboard)
+  const dashboardShared = useAppStore((s) => s.dashboardShared)
+  const saveSharedDashboard = useAppStore((s) => s.saveSharedDashboard)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
 
   if (!dashboard || dashboard.panels.length === 0) return null
@@ -47,11 +49,22 @@ export default function Dashboard() {
           className="rounded-md border bg-[#10142a] px-3 py-1.5 text-lg font-semibold tracking-tight"
         />
         <span className="text-xs opacity-70">
-          {t(uiLang, 'dashboard.saved')}
-          {dashboard.savedAt
+          {dashboardShared ? t(uiLang, 'dashboard.sharedNote') : t(uiLang, 'dashboard.saved')}
+          {!dashboardShared &&
+          dashboard.savedAt &&
+          Number.isFinite(Date.parse(dashboard.savedAt))
             ? ` · ${new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(dashboard.savedAt))}`
             : ''}
         </span>
+        {dashboardShared && (
+          <button
+            type="button"
+            className="rounded-md bg-[#f97316] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#ea580c]"
+            onClick={() => saveSharedDashboard()}
+          >
+            {t(uiLang, 'dashboard.saveCopy')}
+          </button>
+        )}
         <span className="w-full text-xs opacity-60">{t(uiLang, 'dashboard.freshNote')}</span>
         <span className="ml-auto flex gap-2">
           <button
@@ -62,7 +75,12 @@ export default function Dashboard() {
                 buildDashboardUrl(
                   window.location.href,
                   dashboard.name,
-                  dashboard.panels.map((p) => p.spec),
+                  dashboard.panels.map((p) => ({
+                    spec: p.spec,
+                    title: p.title,
+                    viz: p.viz,
+                    wide: p.rect.w === 2,
+                  })),
                 ),
               )
             }

@@ -52,6 +52,39 @@ export default defineConfig({
               expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 7 },
             },
           },
+          // QA 2026-11-05 (offline): sin conexión se recuperaba la
+          // portada pero no el último panel consultado. NetworkFirst:
+          // con red manda lo fresco de Eurostat; sin red, la última
+          // copia vista (el panel muestra su fecha `updated`).
+          {
+            urlPattern: /^https:\/\/ec\.europa\.eu\/eurostat\/api\/dissemination\/statistics\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'europivot-data',
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/ec\.europa\.eu\/eurostat\/api\/dissemination\/sdmx\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'europivot-schema',
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/gisco-services\.ec\.europa\.eu\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'europivot-geo',
+              expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
         ],
       },
     }),

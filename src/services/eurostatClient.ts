@@ -284,7 +284,7 @@ async function doFetch(
   try {
     response = await fetchImpl(url, { signal, headers: { Accept: 'application/json' } })
   } catch (cause) {
-    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause
+    if ((cause as Error)?.name === 'AbortError') throw cause
     throw new EurostatApiError(
       'network',
       `No se pudo contactar con Eurostat: ${cause instanceof Error ? cause.message : String(cause)}`,

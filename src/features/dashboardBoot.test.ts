@@ -13,10 +13,12 @@ import namaFixture from '../services/__fixtures__/nama_10_gdp.b1gq_cpmeur.2023-2
 import demoFixture from '../services/__fixtures__/demo_r_d3dens.country.2020-2024.json'
 
 /**
- * Aceptación de T11 en «navegador limpio»: una URL `?d=` con paneles
- * de DOS datasets distintos reconstruye el dashboard entero (tablas
- * con datos de ambas fixtures reales) y queda persistido en
- * localStorage. Sin URL, el dashboard persistido se restaura solo.
+ * Aceptación de T11 en «navegador limpio» + P1 (QA 2026-11-05): una
+ * URL `?d=` con paneles de DOS datasets distintos reconstruye el
+ * dashboard entero (tablas con datos de ambas fixtures reales) en
+ * modo SOLO CONSULTA: el dashboard PROPIO guardado en localStorage
+ * NO se sobrescribe. Solo el botón expreso «Guardar una copia» lo
+ * sustituye.
  */
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -75,12 +77,31 @@ afterEach(() => {
   useAppStore.setState({ dashboard: null, builderSpec: null, selectedDataset: null })
 })
 
-describe('Arranque con enlace de dashboard (T11)', () => {
-  it('reconstruye dos paneles de datasets distintos y los persiste', async () => {
+const OWN_DASHBOARD = {
+  id: 'propio',
+  name: 'Mi trabajo original',
+  panels: [
+    {
+      id: 'p-propio',
+      title: 'Mi panel',
+      viz: 'line',
+      spec: NAMA_SPEC,
+      rect: { x: 0, y: 0, w: 1, h: 1 },
+    },
+  ],
+  savedAt: '2026-11-01T10:00:00.000Z',
+}
+
+describe('Arranque con enlace de dashboard (T11 + P1)', () => {
+  it('reconstruye el compartido SIN sobrescribir el propio guardado', async () => {
+    localStorage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify(OWN_DASHBOARD))
     window.history.replaceState(
       null,
       '',
-      buildDashboardUrl(window.location.href, 'Panel de Jon', [NAMA_SPEC, DEMO_SPEC]),
+      buildDashboardUrl(window.location.href, 'Proyecto ajeno', [
+        { spec: NAMA_SPEC, title: 'PIB ajeno', viz: 'table', wide: true },
+        { spec: DEMO_SPEC },
+      ]),
     )
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -96,17 +117,30 @@ describe('Arranque con enlace de dashboard (T11)', () => {
       timeout: 20000,
       interval: 100,
     })
-    // El nombre del dashboard llega de la URL y queda persistido.
+    // El nombre del COMPARTIDO se ve en pantalla, con su título de
+    // panel personalizado (metadatos del enlace, QA 2026-11-05)…
     const nameInput = container.querySelector<HTMLInputElement>(
       'input[aria-label="Mi dashboard"]',
     )
-    expect(nameInput?.value).toBe('Panel de Jon')
-    const saved = JSON.parse(localStorage.getItem(DASHBOARD_STORAGE_KEY)!)
-    expect(saved.panels).toHaveLength(2)
-    expect(saved.panels.map((p: { spec: { dataset: string } }) => p.spec.dataset)).toEqual([
-      'nama_10_gdp',
-      'demo_r_d3dens',
-    ])
+    expect(nameInput?.value).toBe('Proyecto ajeno')
+    expect(container.textContent).toContain('Estás viendo un dashboard compartido')
+    // …pero el almacenamiento sigue conteniendo el dashboard PROPIO.
+    const intacto = JSON.parse(localStorage.getItem(DASHBOARD_STORAGE_KEY)!)
+    expect(intacto.name).toBe('Mi trabajo original')
+    expect(useAppStore.getState().dashboardShared).toBe(true)
+
+    // La acción expresa «Guardar una copia» SÍ sustituye el guardado.
+    const saveBtn = [...container.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Guardar una copia'),
+    )
+    expect(saveBtn).toBeTruthy()
+    saveBtn!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await vi.waitFor(() => {
+      const now = JSON.parse(localStorage.getItem(DASHBOARD_STORAGE_KEY)!)
+      expect(now.name).toBe('Proyecto ajeno')
+      expect(now.panels).toHaveLength(2)
+    })
+    expect(useAppStore.getState().dashboardShared).toBe(false)
     root.unmount()
   }, 40000)
 })

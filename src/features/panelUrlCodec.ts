@@ -1,4 +1,4 @@
-import type { PivotSpec, TimeSelection } from '../core/types'
+import type { PivotSpec, TimeSelection, VizType } from '../core/types'
 
 /**
  * EUROPIVOT — Codec de URL de UN panel (T09b/M1; adelantado de T11
@@ -135,19 +135,79 @@ export function specFromSearch(search: string): PivotSpec | null {
 // (compatibilidad verificada por test con el enlace real de M1) y un
 // dashboard de un solo panel es trivialmente convertible.
 
+// QA 2026-11-05: el enlace debe conservar TAMBIÉN el título, la
+// visualización y el ancho de cada panel (antes el receptor veía
+// título por defecto, gráfico y ancho normal). Cada panel viaja
+// ahora como { s: WireV1, t?, v?, w? }. COMPATIBILIDAD: los enlaces
+// antiguos llevan el WireV1 pelado por panel — el decodificador
+// acepta ambas formas (los enlaces viejos siguen abriendo, con los
+// valores por defecto de entonces).
+
+interface WirePanelV1 {
+  s: WireV1
+  t?: string
+  v?: string
+  w?: 1 | 2
+}
+
 interface WireDashboardV1 {
   v: 1
   name?: string
-  panels: WireV1[]
+  panels: (WireV1 | WirePanelV1)[]
+}
+
+export interface SharedPanel {
+  spec: PivotSpec
+  title?: string
+  viz?: VizType
+  wide?: boolean
 }
 
 export interface DecodedDashboard {
   name?: string
+  panels: SharedPanel[]
+  /** Atajo de compatibilidad: solo las specs, en orden. */
   specs: PivotSpec[]
 }
 
-export function encodeDashboardParam(name: string | undefined, specs: PivotSpec[]): string {
-  const wire: WireDashboardV1 = { v: 1, panels: specs.map(specToWire) }
+const WIRE_VIZ: VizType[] = ['table', 'line', 'bar', 'map', 'ranking', 'kpi']
+
+function panelToWire(panel: SharedPanel): WirePanelV1 {
+  const wire: WirePanelV1 = { s: specToWire(panel.spec) }
+  if (panel.title) wire.t = panel.title
+  if (panel.viz) wire.v = panel.viz
+  if (panel.wide) wire.w = 2
+  return wire
+}
+
+function wireToPanel(entry: WireV1 | WirePanelV1): SharedPanel | null {
+  if (typeof entry !== 'object' || entry === null) return null
+  if ('s' in entry) {
+    const w = entry as WirePanelV1
+    const spec = wireToSpec(w.s as Partial<WireV1>)
+    if (!spec) return null
+    return {
+      spec,
+      title: typeof w.t === 'string' && w.t.length > 0 ? w.t : undefined,
+      viz: WIRE_VIZ.includes(w.v as VizType) ? (w.v as VizType) : undefined,
+      wide: w.w === 2 ? true : undefined,
+    }
+  }
+  // Forma antigua: el panel ES el WireV1 de la spec.
+  const spec = wireToSpec(entry as Partial<WireV1>)
+  return spec ? { spec } : null
+}
+
+export function encodeDashboardParam(
+  name: string | undefined,
+  panels: (PivotSpec | SharedPanel)[],
+): string {
+  const wire: WireDashboardV1 = {
+    v: 1,
+    panels: panels.map((p) =>
+      panelToWire('spec' in p ? p : { spec: p }),
+    ),
+  }
   if (name) wire.name = name
   return PREFIX + toBase64Url(JSON.stringify(wire))
 }
@@ -155,11 +215,11 @@ export function encodeDashboardParam(name: string | undefined, specs: PivotSpec[
 export function buildDashboardUrl(
   baseUrl: string,
   name: string | undefined,
-  specs: PivotSpec[],
+  panels: (PivotSpec | SharedPanel)[],
 ): string {
   const url = new URL(baseUrl)
   url.searchParams.delete('p')
-  url.searchParams.set('d', encodeDashboardParam(name, specs))
+  url.searchParams.set('d', encodeDashboardParam(name, panels))
   return url.toString()
 }
 
@@ -172,15 +232,16 @@ export function decodeDashboardParam(
     if (typeof parsed !== 'object' || parsed === null) return null
     const wire = parsed as Partial<WireDashboardV1>
     if (wire.v !== 1 || !Array.isArray(wire.panels) || wire.panels.length === 0) return null
-    const specs: PivotSpec[] = []
+    const panels: SharedPanel[] = []
     for (const p of wire.panels) {
-      const spec = wireToSpec(p as Partial<WireV1>)
-      if (!spec) return null // un panel corrupto invalida el enlace entero
-      specs.push(spec)
+      const panel = wireToPanel(p)
+      if (!panel) return null // un panel corrupto invalida el enlace entero
+      panels.push(panel)
     }
     return {
       name: typeof wire.name === 'string' ? wire.name : undefined,
-      specs,
+      panels,
+      specs: panels.map((p) => p.spec),
     }
   } catch {
     return null

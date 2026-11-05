@@ -46,22 +46,46 @@ export function deserializeDashboard(raw: string | null): Dashboard | null {
       })
     }
     if (panels.length === 0) return null
+    // P3 (QA 2026-11-05): una fecha de guardado ilegible NO debe
+    // tumbar la app al formatearla ("Invalid time value") — se valida
+    // aquí, a la entrada, y una fecha inválida se descarta (el
+    // dashboard se recupera sin fecha).
+    const savedAt =
+      typeof d.savedAt === 'string' && Number.isFinite(Date.parse(d.savedAt))
+        ? new Date(d.savedAt).toISOString()
+        : undefined
     return {
       id: typeof d.id === 'string' ? d.id : 'dashboard-local',
       name: typeof d.name === 'string' && d.name.length > 0 ? d.name : 'Mi dashboard',
       panels,
-      savedAt: typeof d.savedAt === 'string' ? d.savedAt : undefined,
+      savedAt,
     }
   } catch {
     return null
   }
 }
 
-export function loadPersistedDashboard(
-  storage: Pick<Storage, 'getItem'> = localStorage,
-): Dashboard | null {
+/**
+ * P2 (QA 2026-11-05): en navegadores que DENIEGAN el acceso a
+ * localStorage, el simple hecho de REFERENCIAR el objeto lanza
+ * SecurityError. Si eso ocurre al crear el store (arranque), la app
+ * entera quedaba en blanco. Por eso el acceso vive dentro de un
+ * try/catch y se resuelve perezosamente: sin almacenamiento, la app
+ * arranca y funciona en memoria.
+ */
+export function safeLocalStorage(): Storage | null {
   try {
-    return deserializeDashboard(storage.getItem(DASHBOARD_STORAGE_KEY))
+    return typeof window !== 'undefined' ? window.localStorage : null
+  } catch {
+    return null
+  }
+}
+
+export function loadPersistedDashboard(storage?: Pick<Storage, 'getItem'>): Dashboard | null {
+  try {
+    const s = storage ?? safeLocalStorage()
+    if (!s) return null
+    return deserializeDashboard(s.getItem(DASHBOARD_STORAGE_KEY))
   } catch {
     return null
   }
@@ -69,13 +93,15 @@ export function loadPersistedDashboard(
 
 export function persistDashboard(
   dashboard: Dashboard | null,
-  storage: Pick<Storage, 'setItem' | 'removeItem'> = localStorage,
+  storage?: Pick<Storage, 'setItem' | 'removeItem'>,
 ): void {
   try {
+    const s = storage ?? safeLocalStorage()
+    if (!s) return
     if (!dashboard || dashboard.panels.length === 0) {
-      storage.removeItem(DASHBOARD_STORAGE_KEY)
+      s.removeItem(DASHBOARD_STORAGE_KEY)
     } else {
-      storage.setItem(DASHBOARD_STORAGE_KEY, serializeDashboard(dashboard))
+      s.setItem(DASHBOARD_STORAGE_KEY, serializeDashboard(dashboard))
     }
   } catch {
     // Almacenamiento lleno o bloqueado: el dashboard sigue en memoria;

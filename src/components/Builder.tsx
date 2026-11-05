@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CURATED_PACK } from '../config/curatedPack'
 import type { GeoPresetId } from '../config/geoPresets'
 import { dimLabelEs, geoLabelEs } from '../config/labelsEs'
@@ -233,6 +233,22 @@ export default function Builder() {
   const [state, setState] = useState<BuilderState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [applied, setApplied] = useState(false)
+  // QA 2026-11-05: si la carga del esquema falla, pulsar otra vez la
+  // misma tarjeta no reintentaba (el dataset no cambia). El botón
+  // «Reintentar» sube este contador y el efecto vuelve a consultar.
+  const [schemaNonce, setSchemaNonce] = useState(0)
+  const sectionRef = useRef<HTMLElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const scrollSignal = useAppStore((s) => s.builderScrollSignal)
+
+  // QA móvil: al elegir dataset desde la Home, el constructor puede
+  // quedar miles de píxeles más abajo y el clic parece no hacer
+  // nada — la señal lleva el scroll y el foco a su encabezado.
+  useEffect(() => {
+    if (scrollSignal === 0) return
+    sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    headingRef.current?.focus({ preventScroll: true })
+  }, [scrollSignal])
 
   useEffect(() => {
     if (!selectedDataset) return
@@ -273,7 +289,7 @@ export default function Builder() {
     return () => {
       alive = false
     }
-  }, [selectedDataset])
+  }, [selectedDataset, schemaNonce])
 
   const budget = useMemo(
     () => (schema && state && selectedDataset ? budgetFor(selectedDataset, state, schema) : null),
@@ -300,8 +316,8 @@ export default function Builder() {
   const layoutDims = schema?.dims.filter((d) => d.id !== 'freq') ?? []
 
   return (
-    <section aria-label={t(uiLang, 'builder.title')} className="mt-12">
-      <h2 className="text-lg font-semibold tracking-tight">
+    <section ref={sectionRef} aria-label={t(uiLang, 'builder.title')} className="mt-12 scroll-mt-4">
+      <h2 ref={headingRef} tabIndex={-1} className="text-lg font-semibold tracking-tight outline-none">
         {t(uiLang, 'builder.title')} · <code className="font-mono text-base">{selectedDataset}</code>
       </h2>
 
@@ -311,9 +327,18 @@ export default function Builder() {
         </p>
       )}
       {error && (
-        <p className="mt-3 rounded-lg border border-[#f87171]/25 bg-[#f87171]/10 px-3 py-2 text-sm text-[#fca5a5]" role="alert">
-          {t(uiLang, 'builder.errorSchema')} {error}
-        </p>
+        <div className="mt-3 rounded-lg border border-[#f87171]/25 bg-[#f87171]/10 px-3 py-2 text-sm text-[#fca5a5]" role="alert">
+          <p>
+            {t(uiLang, 'builder.errorSchema')} {error}
+          </p>
+          <button
+            type="button"
+            className="mt-2 rounded-md border border-[#fca5a5]/50 px-3 py-1 text-xs font-semibold text-white"
+            onClick={() => setSchemaNonce((n) => n + 1)}
+          >
+            {t(uiLang, 'builder.retry')}
+          </button>
+        </div>
       )}
 
       {schema && state && (

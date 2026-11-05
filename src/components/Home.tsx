@@ -74,6 +74,13 @@ export default function Home() {
   const selectedDataset = useAppStore((s) => s.selectedDataset)
   const setSelectedDataset = useAppStore((s) => s.setSelectedDataset)
   const setBuilderSpec = useAppStore((s) => s.setBuilderSpec)
+  const requestBuilderScroll = useAppStore((s) => s.requestBuilderScroll)
+
+  /** Elegir un dataset lleva la vista al constructor (QA móvil). */
+  const chooseDataset = (code: string) => {
+    setSelectedDataset(code)
+    requestBuilderScroll()
+  }
 
   const openM1 = () => {
     setSelectedDataset(M1_SPEC.dataset)
@@ -197,7 +204,7 @@ export default function Home() {
                   key={entry.code}
                   entry={entry}
                   lang={uiLang}
-                  onSelect={setSelectedDataset}
+                  onSelect={chooseDataset}
                   selected={selectedDataset === entry.code}
                 />
               ))}
@@ -239,7 +246,7 @@ export default function Home() {
               </p>
               <button
                 type="button"
-                onClick={() => setSelectedDataset(card.code)}
+                onClick={() => chooseDataset(card.code)}
                 aria-pressed={selectedDataset === card.code}
                 className={`mt-3 rounded-md border px-3 py-1.5 text-xs font-medium ${
                   selectedDataset === card.code

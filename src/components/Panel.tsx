@@ -287,6 +287,11 @@ function ChoroplethMap({
 }
 
 function errorKey(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'kind' in error) {
+    const kind = (error as { kind?: string }).kind
+    if (kind === 'timeout') return 'panel.err.timeout'
+    if (kind === 'cancelled') return 'panel.err.cancelled'
+  }
   if (error instanceof EurostatApiError) {
     switch (error.kind) {
       case 'no_results':
@@ -330,17 +335,34 @@ export default function Panel({
   const [pinned, setPinned] = useState(false)
   const [refreshNonce, setRefreshNonce] = useState(0)
   const [fetchedAt, setFetchedAt] = useState<number | null>(null)
+  // QA 2026-11-05: una descarga colgada dejaba «Descargando…» para
+  // siempre, sin salida. Ahora hay tiempo límite (30 s), botón de
+  // cancelar durante la carga y de reintentar tras el error.
+  const abortRef = useRef<AbortController | null>(null)
+  const cancelledRef = useRef(false)
+  const [canPng, setCanPng] = useState(false)
+
+  // El botón PNG solo está activo si AHORA MISMO hay un gráfico o
+  // mapa exportable en el panel (tras transponer puede no haberlo).
+  useEffect(() => {
+    const next = Boolean(sectionRef.current?.querySelector('svg[data-export]'))
+    setCanPng((prev) => (prev === next ? prev : next))
+  })
 
   useEffect(() => {
     if (!spec) return
     let alive = true
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    cancelledRef.current = false
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
     setLoading(true)
     setError(null)
     setParsed(null)
     setShareUrl(null)
     setPinned(false)
     setLayout({ rows: spec.rows, columns: spec.columns })
-    fetchDataset(spec)
+    fetchDataset(spec, { signal: ctrl.signal })
       .then((raw) => {
         if (!alive) return
         const parsedData = parseJsonStat(raw, spec.dataset)
@@ -350,13 +372,21 @@ export default function Panel({
         setParsed(parsedData)
       })
       .catch((e: unknown) => {
-        if (alive) setError(e)
+        if (!alive) return
+        if ((e as Error)?.name === 'AbortError') {
+          setError({ kind: cancelledRef.current ? 'cancelled' : 'timeout' })
+        } else {
+          setError(e)
+        }
       })
       .finally(() => {
+        clearTimeout(timer)
         if (alive) setLoading(false)
       })
     return () => {
       alive = false
+      clearTimeout(timer)
+      ctrl.abort()
     }
   }, [spec, refreshNonce])
 
@@ -438,6 +468,9 @@ export default function Panel({
 
   if (!spec) return null
 
+  // QA 2026-11-05: con cero observaciones las exportaciones no deben
+  // estar activas (exportaban ficheros vacíos con periodo «–»).
+  const noData = parsed !== null && parsed.rows.length === 0
   const unitCode = spec.filters['unit']?.[0]
   // Países pedidos que la respuesta no trae (cero observaciones en
   // este corte): no desaparecen en silencio, se nombran — con otros
@@ -468,14 +501,31 @@ export default function Panel({
       </h2>
 
       {loading && (
-        <p className="mt-3 text-sm opacity-80" role="status">
+        <p className="mt-3 flex items-center gap-3 text-sm opacity-80" role="status">
           {t(uiLang, 'panel.loading')}
+          <button
+            type="button"
+            className="rounded-md border px-2.5 py-1 text-xs font-medium"
+            onClick={() => {
+              cancelledRef.current = true
+              abortRef.current?.abort()
+            }}
+          >
+            {t(uiLang, 'panel.cancel')}
+          </button>
         </p>
       )}
       {error !== null && (
-        <p className="mt-3 rounded-lg border border-[#f87171]/25 bg-[#f87171]/10 px-3 py-2 text-sm text-[#fca5a5]" role="alert">
-          {t(uiLang, errorKey(error) as never)}
-        </p>
+        <div className="mt-3 rounded-lg border border-[#f87171]/25 bg-[#f87171]/10 px-3 py-2 text-sm text-[#fca5a5]" role="alert">
+          <p>{t(uiLang, errorKey(error) as never)}</p>
+          <button
+            type="button"
+            className="mt-2 rounded-md border border-[#fca5a5]/50 px-3 py-1 text-xs font-semibold text-white"
+            onClick={() => setRefreshNonce((n) => n + 1)}
+          >
+            {t(uiLang, 'panel.retry')}
+          </button>
+        </div>
       )}
       {viewError !== null && (
         <p className="mt-3 rounded-lg border border-[#fbbf24]/25 bg-[#fbbf24]/10 px-3 py-2 text-sm" role="alert">
@@ -519,6 +569,7 @@ export default function Panel({
           </button>
           <button
             type="button"
+            disabled={noData}
             onClick={() => {
               const ctx = exportCtx()
               if (!ctx || !parsed) return
@@ -527,7 +578,7 @@ export default function Panel({
                 `${fileStem(ctx.dataset, 'datos', ctx.exportedAt)}.csv`,
               )
             }}
-            className="rounded-md border px-3 py-1.5 text-xs font-medium"
+            className="rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40"
           >
             {t(uiLang, 'panel.export.csvData')}
           </button>
@@ -548,6 +599,7 @@ export default function Panel({
           </button>
           <button
             type="button"
+            disabled={noData}
             onClick={() => {
               const ctx = exportCtx()
               if (!ctx || !parsed) return
@@ -557,20 +609,21 @@ export default function Panel({
                 'text/tab-separated-values;charset=utf-8',
               )
             }}
-            className="rounded-md border px-3 py-1.5 text-xs font-medium"
+            className="rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40"
           >
             {t(uiLang, 'panel.export.tsvData')}
           </button>
           {(viz === undefined || viz === 'line' || viz === 'map') && (
             <button
               type="button"
+              disabled={!canPng || noData}
               onClick={async () => {
                 const ctx = exportCtx()
                 const svg = sectionRef.current?.querySelector<SVGSVGElement>('svg[data-export]')
                 if (!ctx || !svg) return
                 await svgToPng(svg, `${fileStem(ctx.dataset, 'grafico', ctx.exportedAt)}.png`)
               }}
-              className="rounded-md border px-3 py-1.5 text-xs font-medium"
+              className="rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40"
             >
               {t(uiLang, 'panel.export.png')}
             </button>
