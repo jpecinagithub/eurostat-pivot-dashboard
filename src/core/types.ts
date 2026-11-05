@@ -36,6 +36,8 @@ export interface DatasetDimension {
   id: DimId
   label: string
   role?: DimRole
+  /** Codelist SDMX de la dimensión (UNIT, GEO, NA_ITEM…) si el DSD la declara. */
+  codelist?: string
   categories: { code: Code; label: string }[]
 }
 

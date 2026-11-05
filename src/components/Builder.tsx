@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CURATED_PACK } from '../config/curatedPack'
 import type { GeoPresetId } from '../config/geoPresets'
+import { dimLabelEs, geoLabelEs } from '../config/labelsEs'
 import type { DatasetDimension, DatasetSchema, DimId, TimeSelection } from '../core/types'
 import {
   applyGeoPreset,
@@ -12,6 +13,7 @@ import {
   type BuilderState,
 } from '../features/builderModel'
 import { t } from '../i18n/dictionaries'
+import { fetchCodelist } from '../services/codelistService'
 import { fetchSchema } from '../services/schemaService'
 import { useAppStore } from '../store/dashboardStore'
 
@@ -23,12 +25,14 @@ function DimensionSection({
   onToggle,
   onAll,
   onPreset,
+  labelFor,
 }: {
   dim: DatasetDimension
   state: BuilderState
   onToggle: (dim: DimId, code: string) => void
   onAll: (dim: DimId, all: boolean) => void
   onPreset: (preset: GeoPresetId) => void
+  labelFor: (dim: DatasetDimension, code: string) => string
 }) {
   const uiLang = useAppStore((s) => s.uiLang)
   const selected = state.selections[dim.id] ?? []
@@ -36,7 +40,8 @@ function DimensionSection({
   return (
     <fieldset className="rounded-xl border bg-white p-4 shadow-sm">
       <legend className="px-1 text-sm font-semibold">
-        {dim.id}
+        {dimLabelEs(dim.id)}{' '}
+        <span className="font-mono text-[11px] font-normal opacity-50">{dim.id}</span>
         <span className="ml-2 text-xs font-normal opacity-70">
           {selected.length} {t(uiLang, 'builder.selectedOf')} {dim.categories.length}
           {isGeo && state.geoLevel ? ' · geoLevel=country' : ''}
@@ -67,18 +72,22 @@ function DimensionSection({
           {t(uiLang, 'builder.none')}
         </button>
       </div>
-      <ul className="grid max-h-44 grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto pr-1 sm:grid-cols-3">
+      <ul className="grid max-h-52 grid-cols-2 gap-x-3 gap-y-2 overflow-y-auto pr-1">
         {dim.categories.map((cat) => (
           <li key={cat.code}>
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+            <label className="flex cursor-pointer items-start gap-1.5">
               <input
                 type="checkbox"
+                className="mt-0.5 shrink-0"
                 data-dim={dim.id}
                 value={cat.code}
                 checked={selected.includes(cat.code)}
                 onChange={() => onToggle(dim.id, cat.code)}
               />
-              <span className="font-mono">{cat.code}</span>
+              <span className="flex min-w-0 flex-col">
+                <span className="text-xs leading-snug break-words">{labelFor(dim, cat.code)}</span>
+                <span className="font-mono text-[10px] opacity-55">{cat.code}</span>
+              </span>
             </label>
           </li>
         ))}
@@ -218,6 +227,7 @@ export default function Builder() {
   const setBuilderSpec = useAppStore((s) => s.setBuilderSpec)
 
   const [schema, setSchema] = useState<DatasetSchema | null>(null)
+  const [codeNames, setCodeNames] = useState<Record<string, Map<string, string>>>({})
   const [state, setState] = useState<BuilderState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [applied, setApplied] = useState(false)
@@ -235,6 +245,25 @@ export default function Builder() {
         setSchema(loaded)
         const card = CURATED_PACK.find((c) => c.code === selectedDataset)
         setState(initialBuilderState(loaded, card))
+        // Nombres oficiales de los códigos (codelists SDMX): la capa
+        // descriptiva. Si una codelist falla, quedan los códigos —
+        // nunca se bloquea el constructor por las etiquetas.
+        for (const dim of loaded.dims) {
+          if (!dim.codelist || dim.id === 'time') continue
+          if (
+            dim.id === 'geo' &&
+            dim.categories.every((c) => geoLabelEs(c.code) !== undefined)
+          ) {
+            continue
+          }
+          fetchCodelist(dim.codelist)
+            .then((names) => {
+              if (alive) {
+                setCodeNames((prev) => ({ ...prev, [dim.codelist as string]: names }))
+              }
+            })
+            .catch(() => undefined)
+        }
       })
       .catch((e: unknown) => {
         if (alive) setError(e instanceof Error ? e.message : String(e))
@@ -248,6 +277,13 @@ export default function Builder() {
     () => (schema && state && selectedDataset ? budgetFor(selectedDataset, state, schema) : null),
     [schema, state, selectedDataset],
   )
+
+  const labelFor = (dim: DatasetDimension, code: string): string => {
+    if (dim.id === 'geo') {
+      return geoLabelEs(code) ?? (dim.codelist ? codeNames[dim.codelist]?.get(code) : undefined) ?? code
+    }
+    return (dim.codelist ? codeNames[dim.codelist]?.get(code) : undefined) ?? code
+  }
 
   if (!selectedDataset) return null
 
@@ -288,6 +324,7 @@ export default function Builder() {
                     setState((s) => (s ? setAllValues(s, schema, d, all) : s))
                     setApplied(false)
                   }}
+                  labelFor={labelFor}
                   onPreset={(preset) => {
                     setState((s) => (s ? applyGeoPreset(s, schema, preset).state : s))
                     setApplied(false)

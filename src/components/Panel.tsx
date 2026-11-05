@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CURATED_PACK } from '../config/curatedPack'
+import { geoLabelEs } from '../config/labelsEs'
 import { fmtEs } from '../engine/derivedMetrics'
 import type { PivotTable } from '../engine/pivotEngine'
 import { buildPanelView } from '../features/panelModel'
@@ -7,6 +8,24 @@ import { buildPanelUrl } from '../features/panelUrlCodec'
 import { t, type UiLang } from '../i18n/dictionaries'
 import { EurostatApiError, fetchDataset } from '../services/eurostatClient'
 import { parseJsonStat, type ParsedDataset } from '../services/jsonstatParser'
+
+/** Etiqueta legible de una clave de fila/columna: nombre ES de geo si
+ *  lo hay; si no, la etiqueta oficial que trae la propia respuesta
+ *  JSON-stat (T03); el código queda en el atributo title. */
+function keyLabel(parsed: ParsedDataset, dims: string[], tuple: string[]): string {
+  return tuple
+    .map((code, i) => {
+      if (dims[i] === 'geo') return geoLabelEs(code) ?? labelFromSchema(parsed, dims[i], code) ?? code
+      return labelFromSchema(parsed, dims[i], code) ?? code
+    })
+    .join(' · ')
+}
+
+function labelFromSchema(parsed: ParsedDataset, dim: string, code: string): string | undefined {
+  const d = parsed.schema.dims.find((x) => x.id === dim)
+  const cat = d?.categories.find((c) => c.code === code)
+  return cat && cat.label !== cat.code ? cat.label : undefined
+}
 import { useAppStore } from '../store/dashboardStore'
 
 const PALETTE = ['#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2']
@@ -256,8 +275,13 @@ export default function Panel() {
                     {view.table.rowDims.join(' · ')} \ {view.table.colDims.join(' · ')}
                   </th>
                   {view.table.colKeys.map((ck) => (
-                    <th key={ck.join()} scope="col" className="px-3 py-2 text-right font-semibold">
-                      {ck.join(' · ')}
+                    <th
+                      key={ck.join()}
+                      scope="col"
+                      title={ck.join(' · ')}
+                      className="px-3 py-2 text-right font-semibold"
+                    >
+                      {keyLabel(parsed, view.table.colDims, ck)}
                     </th>
                   ))}
                 </tr>
@@ -265,8 +289,12 @@ export default function Panel() {
               <tbody>
                 {view.table.rowKeys.map((rk, i) => (
                   <tr key={rk.join()} className="border-t">
-                    <th scope="row" className="px-3 py-1.5 text-left font-medium">
-                      {rk.join(' · ')}
+                    <th
+                      scope="row"
+                      title={rk.join(' · ')}
+                      className="px-3 py-1.5 text-left font-medium"
+                    >
+                      {keyLabel(parsed, view.table.rowDims, rk)}
                     </th>
                     {view.table.cells[i].map((cell, j) => (
                       <td key={j} className="px-3 py-1.5 text-right tabular-nums">

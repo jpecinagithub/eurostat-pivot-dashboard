@@ -6,6 +6,10 @@ import Builder from '../components/Builder'
 import { useAppStore } from '../store/dashboardStore'
 import dsdXml from '../services/__fixtures__/nama_10_gdp.datastructure.xml?raw'
 import constraintXml from '../services/__fixtures__/nama_10_gdp.contentconstraint.xml?raw'
+import geoSample from '../services/__fixtures__/codelist_geo.sample.xml?raw'
+import unitSample from '../services/__fixtures__/codelist_unit.sample.xml?raw'
+import naItemSample from '../services/__fixtures__/codelist_na_item.sample.xml?raw'
+import { _resetCodelistCacheForTests } from '../services/codelistService'
 
 /**
  * Smoke del constructor (T08) con el esquema REAL de nama_10_gdp
@@ -18,12 +22,19 @@ import constraintXml from '../services/__fixtures__/nama_10_gdp.contentconstrain
 let container: HTMLDivElement | null = null
 
 beforeEach(() => {
+  _resetCodelistCacheForTests()
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => ({
       ok: true,
       status: 200,
-      text: async () => (url.includes('datastructure') ? dsdXml : constraintXml),
+      text: async () => {
+        if (url.includes('/codelist/ESTAT/UNIT/')) return unitSample
+        if (url.includes('/codelist/ESTAT/NA_ITEM/')) return naItemSample
+        if (url.includes('/codelist/ESTAT/GEO/')) return geoSample
+        if (url.includes('/codelist/')) return '<x/>'
+        return url.includes('datastructure') ? dsdXml : constraintXml
+      },
     })),
   )
   useAppStore.setState({ selectedDataset: 'nama_10_gdp', builderSpec: null })
@@ -46,6 +57,17 @@ describe('Builder — interacción con esquema real', () => {
     // El esquema llega y las dimensiones se pintan.
     await vi.waitFor(
       () => expect(container!.textContent).toContain('Estimación previa'),
+      { timeout: 15000, interval: 100 },
+    )
+
+    // Etiquetas descriptivas: el nombre oficial sustituye al código
+    // crudo (veredicto M1 de Jon) y geo sale en español del diccionario.
+    await vi.waitFor(
+      () => {
+        expect(container!.textContent).toContain('Gross domestic product at market prices')
+        expect(container!.textContent).toContain('España')
+        expect(container!.textContent).toContain('Unidad')
+      },
       { timeout: 15000, interval: 100 },
     )
 

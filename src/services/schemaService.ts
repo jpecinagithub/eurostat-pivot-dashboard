@@ -54,12 +54,22 @@ export function parseDataStructure(xml: string): { version: string; dims: Datase
     const id = el.getAttribute('id')
     if (!id) continue
     const norm = normalizeDimId(id)
+    // La representación local declara la codelist en su Enumeration
+    // (Ref id="UNIT"…): es la llave para resolver los NOMBRES oficiales
+    // de los códigos en el servicio de codelists (las etiquetas
+    // descriptivas). Ojo: el primer Ref de la dimensión es el CONCEPTO
+    // (id en minúsculas), no la codelist — hay que bajar a Enumeration.
+    const enumeration = elementsByLocalName(el, 'Enumeration')[0]
+    const codelist = enumeration
+      ? (elementsByLocalName(enumeration, 'Ref')[0]?.getAttribute('id') ?? undefined)
+      : undefined
     found.push({
       position: Number(el.getAttribute('position') ?? 999),
       dim: {
         id: norm,
         label: norm,
         role: norm === 'geo' ? 'geo' : undefined,
+        codelist,
         categories: [],
       },
     })
