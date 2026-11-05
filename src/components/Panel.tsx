@@ -33,23 +33,56 @@ const PALETTE = ['#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f472b6', '#f97316
 /**
  * Gráfico de líneas SVG propio (sin librería): series por fila cuando
  * el tiempo está en columnas. La serie del agregado UE va discontinua
- * y en oscuro — es la referencia, no un país más (RF-26). La tabla de
- * debajo es su gemela accesible: el gráfico nunca es la única vía.
+ * y en naranja claro — es la referencia, no un país más (RF-26). Con
+ * ejes de verdad: ticks «bonitos» en Y con rejilla, periodos en X y el
+ * valor final de cada serie junto a su último punto (≤6 series). La
+ * tabla de debajo es su gemela accesible: el gráfico nunca es la
+ * única vía.
  */
-function LineChart({ table }: { table: PivotTable }) {
+export function niceTicks(min: number, max: number, count = 4): { lo: number; hi: number; ticks: number[] } {
+  if (min === max) {
+    min -= 1
+    max += 1
+  }
+  const rawStep = (max - min) / count
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)))
+  const norm = rawStep / mag
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag
+  const lo = Math.floor(min / step) * step
+  const hi = Math.ceil(max / step) * step
+  const ticks: number[] = []
+  for (let v = lo; v <= hi + step / 1000; v += step) ticks.push(Number(v.toFixed(6)))
+  return { lo, hi, ticks }
+}
+
+function LineChart({
+  table,
+  labelFor,
+}: {
+  table: PivotTable
+  labelFor: (rk: string[]) => string
+}) {
   const timeOnCols = table.colDims.includes('time')
   if (!timeOnCols || table.colKeys.length < 2) return null
   const periods = table.colKeys.map((k) => k[table.colDims.indexOf('time')])
   const all = table.cells.flat().map((c) => c.value).filter((v): v is number => v !== null)
   if (all.length === 0) return null
-  const min = Math.min(...all)
-  const max = Math.max(...all)
-  const range = max - min || 1
+  const { lo, hi, ticks } = niceTicks(Math.min(...all), Math.max(...all))
+  const decimals = ticks.length > 1 && ticks[1] - ticks[0] < 1 ? 1 : 0
   const W = 640
-  const H = 220
-  const PAD = 8
-  const x = (j: number) => PAD + (j / (periods.length - 1)) * (W - 2 * PAD)
-  const y = (v: number) => H - PAD - ((v - min) / range) * (H - 2 * PAD)
+  const H = 250
+  const LEFT = 50
+  const RIGHT = 14
+  const TOP = 12
+  const BOTTOM = 26
+  const plotW = W - LEFT - RIGHT
+  const plotH = H - TOP - BOTTOM
+  const x = (j: number) => LEFT + (j / (periods.length - 1)) * plotW
+  const y = (v: number) => TOP + (1 - (v - lo) / (hi - lo)) * plotH
+  const xStep = Math.max(1, Math.ceil(periods.length / 8))
+  const axisColor = 'rgba(255,255,255,0.18)'
+  const gridColor = 'rgba(255,255,255,0.08)'
+  const labelColor = '#8f97b5'
 
   return (
     <figure className="mt-4">
@@ -57,23 +90,59 @@ function LineChart({ table }: { table: PivotTable }) {
         viewBox={`0 0 ${W} ${H}`}
         className="w-full rounded-xl border bg-[#10142a]"
         role="img"
-        aria-label={`Gráfico de líneas: ${table.rowKeys.map((k) => k.join(' ')).join(', ')}`}
+        aria-label={`Gráfico de líneas: ${table.rowKeys.map((k) => labelFor(k)).join(', ')}`}
       >
+        {ticks.map((tv) => (
+          <g key={tv}>
+            <line x1={LEFT} x2={LEFT + plotW} y1={y(tv)} y2={y(tv)} stroke={gridColor} strokeWidth={1} />
+            <text x={LEFT - 6} y={y(tv) + 3} textAnchor="end" fontSize={10} fill={labelColor}>
+              {fmtEs(tv, decimals)}
+            </text>
+          </g>
+        ))}
+        <line x1={LEFT} x2={LEFT} y1={TOP} y2={TOP + plotH} stroke={axisColor} strokeWidth={1} />
+        <line x1={LEFT} x2={LEFT + plotW} y1={TOP + plotH} y2={TOP + plotH} stroke={axisColor} strokeWidth={1} />
+        {periods.map((p, j) =>
+          j % xStep === 0 || j === periods.length - 1 ? (
+            <text key={p} x={x(j)} y={H - 8} textAnchor="middle" fontSize={10} fill={labelColor}>
+              {p}
+            </text>
+          ) : null,
+        )}
         {table.rowKeys.map((rk, i) => {
           const isRef = rk.includes('EU27_2020')
+          const color = isRef ? '#fb923c' : PALETTE[i % PALETTE.length]
           const points = table.cells[i]
             .map((c, j) => (c.value === null ? null : `${x(j)},${y(c.value)}`))
             .filter(Boolean)
             .join(' ')
+          let lastIdx = -1
+          table.cells[i].forEach((c, j) => {
+            if (c.value !== null) lastIdx = j
+          })
+          const lastVal = lastIdx >= 0 ? table.cells[i][lastIdx].value : null
           return (
-            <polyline
-              key={rk.join()}
-              points={points}
-              fill="none"
-              stroke={isRef ? '#fb923c' : PALETTE[i % PALETTE.length]}
-              strokeWidth={isRef ? 2.5 : 1.8}
-              strokeDasharray={isRef ? '6 4' : undefined}
-            />
+            <g key={rk.join()}>
+              <polyline
+                points={points}
+                fill="none"
+                stroke={color}
+                strokeWidth={isRef ? 2.5 : 1.8}
+                strokeDasharray={isRef ? '6 4' : undefined}
+              />
+              {lastVal !== null && table.rowKeys.length <= 6 && (
+                <text
+                  x={x(lastIdx)}
+                  y={Math.max(10, y(lastVal) - 7)}
+                  textAnchor="end"
+                  fontSize={10.5}
+                  fontWeight={600}
+                  fill={color}
+                >
+                  {fmtEs(lastVal)}
+                </text>
+              )}
+            </g>
           )
         })}
       </svg>
@@ -87,11 +156,12 @@ function LineChart({ table }: { table: PivotTable }) {
                 background: rk.includes('EU27_2020') ? '#fb923c' : PALETTE[i % PALETTE.length],
               }}
             />
-            {rk.join(' · ')}
+            {labelFor(rk)}
           </span>
         ))}
         <span className="ml-auto">
-          {periods[0]} – {periods[periods.length - 1]} · mín {fmtEs(min)} · máx {fmtEs(max)}
+          {periods[0]} – {periods[periods.length - 1]} · mín {fmtEs(Math.min(...all))} · máx{' '}
+          {fmtEs(Math.max(...all))}
         </span>
       </figcaption>
     </figure>
@@ -233,7 +303,7 @@ export default function Panel() {
             </div>
           )}
 
-          <LineChart table={view.table} />
+          <LineChart table={view.table} labelFor={(rk) => keyLabel(parsed, view.table.rowDims, rk)} />
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button

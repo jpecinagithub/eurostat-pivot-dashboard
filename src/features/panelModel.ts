@@ -171,7 +171,7 @@ export function buildPanelView(
       series: view.focus.series,
       ops,
       reference:
-        view.referenceLast && lastPeriod
+        view.referenceLast && lastPeriod && !(reference && view.focus.geo === reference.key)
           ? { value: view.referenceLast.value, period: lastPeriod }
           : undefined,
       panelMean:

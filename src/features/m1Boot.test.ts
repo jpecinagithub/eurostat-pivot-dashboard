@@ -101,6 +101,12 @@ describe('M1 — arranque desde enlace en navegador limpio', () => {
     expect(text).toContain('Media simple calculada por EUROPIVOT (sin ponderar)')
     expect(text).toContain('37.166,7') // (33000+36500+42000)/3
 
+    // Ejes del gráfico presentes: etiquetas SVG con periodos (X) y
+    // valores (Y) — el gráfico «pobre, sin ejes» quedó atrás.
+    const svgTexts = [...container!.querySelectorAll('svg text')].map((el) => el.textContent)
+    expect(svgTexts).toContain('2016')
+    expect(svgTexts.some((txt) => txt !== null && /^[\d.]+$/.test(txt ?? ''))).toBe(true)
+
     root.unmount()
   }, 40000)
 })
