@@ -156,5 +156,9 @@ fetches internos de un SW no pasan por la interceptación de
 Playwright en esta versión — el SW se verifica por el contenido de
 `dist/sw.js`, que contiene las tres cachés runtime nuevas.
 
-**Estado:** correcciones en el repo (rama `main`); la producción
-seguirá sirviendo la build anterior hasta que Jon redespliegue.
+**Estado:** EN PRODUCCIÓN el mismo día (2026-11-05, 19:31) —
+despliegue de Vercel desde el commit `8a111b8` verificado sobre la
+URL pública: el paquete servido contiene la ronda entera («Guardar
+una copia en mi navegador», aviso de dashboard compartido,
+«Descarga cancelada», «tardó demasiado», «Reintentar») y el
+`sw.js` trae las tres cachés runtime nuevas. Ronda QA CERRADA.
