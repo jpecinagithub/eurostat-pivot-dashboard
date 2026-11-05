@@ -59,7 +59,7 @@ beforeEach(() => {
     builderSpec: {
       dataset: 'nama_10_gdp',
       lang: 'EN',
-      filters: { unit: ['CP_MEUR'], na_item: ['B1GQ'], geo: ['DE', 'ES', 'FR'] },
+      filters: { unit: ['CP_MEUR'], na_item: ['B1GQ'], geo: ['DE', 'ES', 'FR', 'PT'] },
       time: { mode: 'values', values: ['2023', '2024', '2025'] },
       rows: ['geo'],
       columns: ['time'],
@@ -114,6 +114,11 @@ describe('Panel — pipeline completo con fixture real', () => {
     expect(esPath).toBeDefined()
     expect(esPath!.querySelector('title')!.textContent).toContain('1.690.012')
     expect(dataCalls()).toBe(1)
+
+    // PT se pidió pero la fixture no lo trae: el panel lo NOMBRA como
+    // sin datos en vez de hacerlo desaparecer en silencio.
+    expect(container.textContent).toContain('Sin datos en esta selección para')
+    expect(container.textContent).toContain('Portugal')
 
     // Transponer: repivotar desde las mismas filas, CERO red nueva.
     const transpose = [...container.querySelectorAll('button')].find((b) =>

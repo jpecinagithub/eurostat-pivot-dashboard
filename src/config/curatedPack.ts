@@ -565,6 +565,7 @@ export const CURATED_PACK: DatasetCard[] = [
     freq: 'A',
     defaultUnit: 'PC_ENT',
     defaultIndicator: 'E_AI_TANY',
+    defaults: { size_emp: 'GE10' },
     dims: [
       { id: 'freq' },
       { id: 'size_emp' },
@@ -610,6 +611,7 @@ export const CURATED_PACK: DatasetCard[] = [
     freq: 'A',
     defaultUnit: 'PC_GDP',
     defaultIndicator: 'TE',
+    defaults: { sector: 'S13' },
     dims: [
       { id: 'freq' },
       { id: 'unit', role: 'metric' },
@@ -747,6 +749,7 @@ export const CURATED_PACK: DatasetCard[] = [
     freq: 'A',
     defaultUnit: 'PC_POP',
     defaultIndicator: 'EMP_LFS',
+    defaults: { age: 'Y20-64' },
     dims: [
       { id: 'freq' },
       { id: 'indic_em', role: 'metric' },

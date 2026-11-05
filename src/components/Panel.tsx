@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CURATED_PACK } from '../config/curatedPack'
-import { geoLabelEs } from '../config/labelsEs'
+import type { PivotSpec, VizType } from '../core/types'
+import { dimLabelEs, geoLabelEs } from '../config/labelsEs'
 import { fmtEs } from '../engine/derivedMetrics'
-import type { PivotTable } from '../engine/pivotEngine'
+import { PivotAmbiguityError, type PivotTable } from '../engine/pivotEngine'
 import {
   buildChoropleth,
   europeProjector,
@@ -288,9 +289,14 @@ function errorKey(error: unknown): string {
  * con el contexto obligatorio de RF-31. Transponer repivota desde las
  * mismas filas: no vuelve a la red (C4/RF-08).
  */
-export default function Panel() {
+export default function Panel({
+  spec: propSpec,
+  viz,
+}: { spec?: PivotSpec; viz?: VizType } = {}) {
   const uiLang: UiLang = useAppStore((s) => s.uiLang)
-  const spec = useAppStore((s) => s.builderSpec)
+  const storeSpec = useAppStore((s) => s.builderSpec)
+  const addPanel = useAppStore((s) => s.addPanel)
+  const spec = propSpec ?? storeSpec
 
   const [parsed, setParsed] = useState<ParsedDataset | null>(null)
   const [error, setError] = useState<unknown>(null)
@@ -300,6 +306,7 @@ export default function Panel() {
   const [mapShapes, setMapShapes] = useState<Map<string, RegionShape> | null>(null)
   const [mapError, setMapError] = useState(false)
   const [mapPeriod, setMapPeriod] = useState<string | null>(null)
+  const [pinned, setPinned] = useState(false)
 
   useEffect(() => {
     if (!spec) return
@@ -307,6 +314,8 @@ export default function Panel() {
     setLoading(true)
     setError(null)
     setParsed(null)
+    setShareUrl(null)
+    setPinned(false)
     setLayout({ rows: spec.rows, columns: spec.columns })
     fetchDataset(spec)
       .then((raw) => {
@@ -324,13 +333,23 @@ export default function Panel() {
   }, [spec])
 
   const card = spec ? CURATED_PACK.find((c) => c.code === spec.dataset) : undefined
-  const view = useMemo(
-    () =>
-      parsed && spec && layout
-        ? buildPanelView(parsed, spec, layout, card, card?.titleEs ?? spec.dataset)
-        : null,
-    [parsed, spec, layout, card],
-  )
+  // Construir la vista NUNCA debe tumbar la app: una configuración
+  // ambigua (varios valores en una dimensión no colocada) lanza en el
+  // motor pivot, y ese error se pinta como aviso, no como pantallazo
+  // vacío (regresión corregida 2026-11-05).
+  const viewResult = useMemo(() => {
+    if (!parsed || !spec || !layout) return null
+    try {
+      return {
+        view: buildPanelView(parsed, spec, layout, card, card?.titleEs ?? spec.dataset),
+        error: null as unknown,
+      }
+    } catch (e) {
+      return { view: null, error: e }
+    }
+  }, [parsed, spec, layout, card])
+  const view = viewResult?.view ?? null
+  const viewError = viewResult?.error ?? null
 
   // --- Mapa (T10/RF-16): solo con la geografía sola en filas y el
   // tiempo en columnas; el nivel NUTS sale de los propios códigos.
@@ -370,6 +389,16 @@ export default function Panel() {
   if (!spec) return null
 
   const unitCode = spec.filters['unit']?.[0]
+  // Países pedidos que la respuesta no trae (cero observaciones en
+  // este corte): no desaparecen en silencio, se nombran — con otros
+  // cortes (p. ej. otro tamaño de empresa) pueden sí tener datos.
+  const missingGeos: string[] = []
+  if (parsed && spec.filters['geo'] && !spec.geoLevel) {
+    const present = new Set(parsed.rows.map((r) => r['geo']))
+    for (const code of spec.filters['geo']) {
+      if (!present.has(code)) missingGeos.push(code)
+    }
+  }
   const usedFlags = new Map<string, string>()
   if (view) {
     for (const row of view.table.cells) {
@@ -382,7 +411,7 @@ export default function Panel() {
   }
 
   return (
-    <section aria-label={t(uiLang, 'panel.title')} className="mt-12">
+    <section aria-label={t(uiLang, 'panel.title')} className={propSpec ? '' : 'mt-12'}>
       <h2 className="text-lg font-semibold tracking-tight">
         {card?.titleEs ?? spec.dataset}{' '}
         <code className="font-mono text-sm font-normal opacity-70">{spec.dataset}</code>
@@ -396,6 +425,16 @@ export default function Panel() {
       {error !== null && (
         <p className="mt-3 rounded-lg border border-[#f87171]/25 bg-[#f87171]/10 px-3 py-2 text-sm text-[#fca5a5]" role="alert">
           {t(uiLang, errorKey(error) as never)}
+        </p>
+      )}
+      {viewError !== null && (
+        <p className="mt-3 rounded-lg border border-[#fbbf24]/25 bg-[#fbbf24]/10 px-3 py-2 text-sm" role="alert">
+          {viewError instanceof PivotAmbiguityError
+            ? t(uiLang, 'panel.err.ambiguous').replace(
+                '{dim}',
+                dimLabelEs(viewError.dim) ?? viewError.dim,
+              )
+            : t(uiLang, 'panel.err.generic')}
         </p>
       )}
 
@@ -418,6 +457,13 @@ export default function Panel() {
             · {t(uiLang, 'panel.source')}: Eurostat
           </p>
 
+          {missingGeos.length > 0 && (
+            <p className="mt-2 rounded-lg border border-[#fbbf24]/25 bg-[#fbbf24]/10 px-3 py-2 text-xs">
+              {t(uiLang, 'panel.noDataGeos')}:{' '}
+              {missingGeos.map((c) => keyLabel(parsed, ['geo'], [c])).join(', ')}
+            </p>
+          )}
+
           {view.sentence && <p className="mt-3 max-w-3xl text-sm leading-relaxed">{view.sentence}</p>}
 
           {(view.referenceLast || view.meanLast) && (
@@ -437,9 +483,11 @@ export default function Panel() {
             </div>
           )}
 
-          <LineChart table={view.table} labelFor={(rk) => keyLabel(parsed, view.table.rowDims, rk)} />
+          {(viz === undefined || viz === 'line') && (
+            <LineChart table={view.table} labelFor={(rk) => keyLabel(parsed, view.table.rowDims, rk)} />
+          )}
 
-          {geoRowCodes && mapPeriods.length > 0 && (
+          {(viz === undefined || viz === 'map') && geoRowCodes && mapPeriods.length > 0 && (
             <div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <h3 className="text-sm font-semibold">{t(uiLang, 'panel.map.title')}</h3>
@@ -479,7 +527,8 @@ export default function Panel() {
               )}
             </div>
           )}
-          {!geoRowCodes &&
+          {(viz === undefined || viz === 'map') &&
+            !geoRowCodes &&
             (view.table.rowDims.includes('geo') || view.table.colDims.includes('geo')) && (
               <p className="mt-3 text-xs opacity-70">{t(uiLang, 'panel.map.needLayout')}</p>
             )}
@@ -501,6 +550,19 @@ export default function Panel() {
             >
               {t(uiLang, 'panel.share')}
             </button>
+            {!propSpec && (
+              <button
+                type="button"
+                disabled={pinned}
+                className="rounded-md border bg-[#10142a] px-3 py-1.5 text-xs font-medium hover:bg-[#151b38] disabled:opacity-60"
+                onClick={() => {
+                  addPanel(spec, card?.titleEs ?? spec.dataset)
+                  setPinned(true)
+                }}
+              >
+                {pinned ? t(uiLang, 'panel.pinned') : t(uiLang, 'panel.pin')}
+              </button>
+            )}
           </div>
           {shareUrl && (
             <div className="mt-2">

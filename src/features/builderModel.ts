@@ -50,6 +50,16 @@ export function initialBuilderState(
         }
       }
     }
+    // Defaults por dimensión de la ficha (size_emp=GE10, sector=S13…):
+    // solo si el código existe de verdad en el constraint (C9/C14).
+    if (card.defaults) {
+      for (const [dimId, code] of Object.entries(card.defaults)) {
+        const dim = schema.dims.find((d) => d.id === dimId)
+        if (dim?.categories.some((c) => c.code === code)) {
+          selections[dimId] = [code]
+        }
+      }
+    }
   }
 
   return {
@@ -58,6 +68,21 @@ export function initialBuilderState(
     rows: spec.rows,
     columns: spec.columns,
   }
+}
+
+/**
+ * Dimensiones con VARIOS valores seleccionados que no están ni en
+ * filas ni en columnas. Esa configuración es impintable: la respuesta
+ * traería datos mezclables en las mismas celdas y el motor pivot la
+ * rechaza (PivotAmbiguityError). El constructor la detecta ANTES de
+ * aplicar — es la causa del «constructor que se queda vacío» que
+ * reportó Jon: aplicar funcionaba, y el panel reventaba al pintar.
+ */
+export function unplacedMultiSelections(state: BuilderState): DimId[] {
+  const placed = new Set<string>([...state.rows, ...state.columns])
+  return Object.entries(state.selections)
+    .filter(([dim, codes]) => codes.length > 1 && !placed.has(dim))
+    .map(([dim]) => dim as DimId)
 }
 
 export function toggleValue(

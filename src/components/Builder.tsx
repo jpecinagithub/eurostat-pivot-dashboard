@@ -10,6 +10,7 @@ import {
   setAllValues,
   toPivotSpec,
   toggleValue,
+  unplacedMultiSelections,
   type BuilderState,
 } from '../features/builderModel'
 import { t } from '../i18n/dictionaries'
@@ -278,6 +279,11 @@ export default function Builder() {
     [schema, state, selectedDataset],
   )
 
+  const ambiguousDims = useMemo(
+    () => (state ? unplacedMultiSelections(state) : []),
+    [state],
+  )
+
   const labelFor = (dim: DatasetDimension, code: string): string => {
     if (dim.id === 'geo') {
       return geoLabelEs(code) ?? (dim.codelist ? codeNames[dim.codelist]?.get(code) : undefined) ?? code
@@ -401,9 +407,17 @@ export default function Builder() {
                   {t(uiLang, 'builder.overBudget')}
                 </p>
               )}
+              {ambiguousDims.length > 0 && (
+                <p className="mt-1 text-sm font-medium text-[#fbbf24]" role="alert">
+                  {t(uiLang, 'builder.ambiguous').replace(
+                    '{dims}',
+                    ambiguousDims.map((d) => dimLabelEs(d) ?? d).join(', '),
+                  )}
+                </p>
+              )}
               <button
                 type="button"
-                disabled={budget.overBudget}
+                disabled={budget.overBudget || ambiguousDims.length > 0}
                 onClick={() => {
                   setBuilderSpec(toPivotSpec(selectedDataset, state))
                   setApplied(true)

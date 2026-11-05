@@ -82,6 +82,15 @@ export interface DatasetCard {
   lastPeriod?: string
   defaultUnit?: string
   defaultIndicator?: string
+  /**
+   * Valores por defecto para OTRAS dimensiones (dim → código), cuando
+   * el primer valor del constraint es una trampa: p. ej. en isoc_eb_ai
+   * el primer size_emp es «0_1» (empresas de 0–1 empleados), un corte
+   * casi vacío — el titular de la encuesta TIC es GE10 (10+). Sin esta
+   * capa, el constructor «selecciona países» pero la respuesta viene
+   * vacía para casi todos (defecto reportado por Jon, 2026-11-05).
+   */
+  defaults?: Record<string, string>
   validOps: Partial<Record<string, ValidOps>>
   /** Qué es el agregado oficial según la metodología ESMS (RF-28). */
   aggregateNature?: string
