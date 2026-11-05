@@ -156,6 +156,14 @@ fetches internos de un SW no pasan por la interceptación de
 Playwright en esta versión — el SW se verifica por el contenido de
 `dist/sw.js`, que contiene las tres cachés runtime nuevas.
 
+**Pendiente de verificación conductual (revisión del traspaso,
+2026-11-05):** la recuperación offline está probada por el
+contenido del SW, no ejecutada de punta a punta — el E2E corre
+con el SW bloqueado. La prueba decisiva queda preparada en
+`scripts/e2e-offline-live.mjs` (panel con red → desconectar →
+recargar con el SW activo) para un entorno con salida real a
+Eurostat.
+
 **Estado:** EN PRODUCCIÓN el mismo día (2026-11-05, 19:31) —
 despliegue de Vercel desde el commit `8a111b8` verificado sobre la
 URL pública: el paquete servido contiene la ronda entera («Guardar
