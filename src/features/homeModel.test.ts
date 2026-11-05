@@ -60,7 +60,7 @@ describe('Home model (T07)', () => {
     expect(gdp?.values).toBe(1087862)
     // Sin índice cargado aún, la tarjeta sigue existiendo (sin fecha meta).
     const noIndex = packCardsWithMetadata(null)
-    expect(noIndex).toHaveLength(19)
+    expect(noIndex).toHaveLength(33)
     expect(noIndex[0].updatedMeta).toBeUndefined()
   })
 

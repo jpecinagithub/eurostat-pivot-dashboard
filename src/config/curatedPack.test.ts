@@ -3,8 +3,8 @@ import { CURATED_PACK } from './curatedPack'
 
 describe('Pack curado — fichas §3.13 completas (T05b)', () => {
   it('tiene 19 fichas (20 del plan − consolidación IPCA v1→v2) sin códigos repetidos', () => {
-    expect(CURATED_PACK).toHaveLength(19)
-    expect(new Set(CURATED_PACK.map((c) => c.code)).size).toBe(19)
+    expect(CURATED_PACK).toHaveLength(33)
+    expect(new Set(CURATED_PACK.map((c) => c.code)).size).toBe(33)
   })
 
   it('ninguna ficha es de la familia IPCA v1 discontinuada', () => {
@@ -25,7 +25,10 @@ describe('Pack curado — fichas §3.13 completas (T05b)', () => {
       expect(card.verifiedAt, card.code).toBe('2026-11-05')
       expect(card.aggregateNature?.length, card.code).toBeGreaterThan(20)
       expect(card.exampleQuery, card.code).toContain(`/data/${card.code}?`)
-      expect(card.exampleQuery, card.code).toContain('lastTimePeriod=1')
+      // Ventana reciente pequeña. `=1` por convención; `=3` solo cuando el
+      // último periodo del constraint aún no tiene datos (trampa verificada
+      // de sts_inppd_m, documentada en su ficha): el ejemplo debe devolver datos.
+      expect(card.exampleQuery, card.code).toMatch(/lastTimePeriod=[13]/)
       // Dimensiones con geo y time siempre presentes y con rol.
       const geo = card.dims?.find((d) => d.id === 'geo')
       const time = card.dims?.find((d) => d.id === 'time')
