@@ -15,6 +15,7 @@ import {
 } from '../features/builderModel'
 import { t } from '../i18n/dictionaries'
 import { fetchCodelist } from '../services/codelistService'
+import { resolveCategoryLabel } from '../services/dictionaryService'
 import { fetchSchema } from '../services/schemaService'
 import { useAppStore } from '../store/dashboardStore'
 
@@ -284,12 +285,15 @@ export default function Builder() {
     [state],
   )
 
-  const labelFor = (dim: DatasetDimension, code: string): string => {
-    if (dim.id === 'geo') {
-      return geoLabelEs(code) ?? (dim.codelist ? codeNames[dim.codelist]?.get(code) : undefined) ?? code
-    }
-    return (dim.codelist ? codeNames[dim.codelist]?.get(code) : undefined) ?? code
-  }
+  const labelFor = (dim: DatasetDimension, code: string): string =>
+    // T14: diccionario ES primero; si no hay, nombre oficial EN de la
+    // codelist; el hueco queda registrado para datasets del pack.
+    resolveCategoryLabel({
+      dataset: selectedDataset ?? undefined,
+      dim: dim.id,
+      code,
+      official: dim.codelist ? codeNames[dim.codelist]?.get(code) : undefined,
+    }).label
 
   if (!selectedDataset) return null
 

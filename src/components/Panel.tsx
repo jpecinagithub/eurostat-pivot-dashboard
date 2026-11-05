@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CURATED_PACK } from '../config/curatedPack'
 import type { PivotSpec, VizType } from '../core/types'
-import { dimLabelEs, geoLabelEs } from '../config/labelsEs'
+import { dimLabelEs } from '../config/labelsEs'
 import { fmtEs } from '../engine/derivedMetrics'
 import { PivotAmbiguityError, type PivotTable } from '../engine/pivotEngine'
 import {
@@ -15,6 +15,7 @@ import {
 } from '../features/mapModel'
 import { buildPanelView } from '../features/panelModel'
 import { useFreshness } from '../features/useFreshness'
+import { resolveCategoryLabel } from '../services/dictionaryService'
 import { recordSeen } from '../services/freshnessService'
 import {
   buildWorkbook,
@@ -38,10 +39,15 @@ import { parseJsonStat, type ParsedDataset } from '../services/jsonstatParser'
  *  JSON-stat (T03); el código queda en el atributo title. */
 function keyLabel(parsed: ParsedDataset, dims: string[], tuple: string[]): string {
   return tuple
-    .map((code, i) => {
-      if (dims[i] === 'geo') return geoLabelEs(code) ?? labelFromSchema(parsed, dims[i], code) ?? code
-      return labelFromSchema(parsed, dims[i], code) ?? code
-    })
+    .map(
+      (code, i) =>
+        resolveCategoryLabel({
+          dataset: parsed.schema.dataset,
+          dim: dims[i],
+          code,
+          official: labelFromSchema(parsed, dims[i], code),
+        }).label,
+    )
     .join(' · ')
 }
 

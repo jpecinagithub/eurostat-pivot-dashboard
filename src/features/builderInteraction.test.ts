@@ -64,7 +64,8 @@ describe('Builder — interacción con esquema real', () => {
     // crudo (veredicto M1 de Jon) y geo sale en español del diccionario.
     await vi.waitFor(
       () => {
-        expect(container!.textContent).toContain('Gross domestic product at market prices')
+        // T14: la etiqueta ES propia manda sobre el nombre oficial EN.
+        expect(container!.textContent).toContain('Producto interior bruto (PIB)')
         expect(container!.textContent).toContain('España')
         expect(container!.textContent).toContain('Unidad')
       },
