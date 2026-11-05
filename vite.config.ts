@@ -38,6 +38,21 @@ export default defineConfig({
         // Cáscara offline (RNF-02). Los datos de Eurostat se cachean en la capa
         // de cliente (TanStack Query, T02+), nunca en el service worker.
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // El índice del catálogo (2,3 MB, T04) es un chunk perezoso de
+        // datos, no cáscara: precachearlo rompería el límite de 2 MiB de
+        // workbox y penalizaría la instalación. Se cachea en tiempo de
+        // ejecución la primera vez que la Home lo pide (T07).
+        globIgnores: ['**/catalogue-index-*.js'],
+        runtimeCaching: [
+          {
+            urlPattern: /catalogue-index-[^/]+\.js$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'europivot-catalogue',
+              expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            },
+          },
+        ],
       },
     }),
   ],

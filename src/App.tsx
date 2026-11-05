@@ -1,12 +1,12 @@
 import { Analytics } from '@vercel/analytics/react'
-import { THEMES } from './config/themes'
+import Home from './components/Home'
 import { t } from './i18n/dictionaries'
 import { useAppStore } from './store/dashboardStore'
 
 /**
- * EUROPIVOT — cáscara T01: marca, propósito (C0) y los 9 temas oficiales.
- * La home completa con tarjetas de datasets llega en T07; el constructor
- * pivot en T08 y el hito demostrable M1 en T09b (SDD §5).
+ * EUROPIVOT — cáscara: marca, propósito (C0), idioma y pie con la
+ * atribución a Eurostat. La Home (buscador, temas, pack) es T07;
+ * el constructor pivot llega en T08 y el hito M1 en T09b (SDD §5).
  */
 export default function App() {
   const uiLang = useAppStore((s) => s.uiLang)
@@ -44,16 +44,7 @@ export default function App() {
           {t(uiLang, 'app.scaffoldNote')}
         </p>
 
-        <h2 className="mt-10 text-sm font-semibold tracking-wide uppercase opacity-70">
-          {t(uiLang, 'nav.themes')}
-        </h2>
-        <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {THEMES.map((theme) => (
-            <li key={theme.id} className="rounded-xl border bg-white p-4 shadow-sm">
-              <span className="text-sm font-medium">{uiLang === 'es' ? theme.es : theme.en}</span>
-            </li>
-          ))}
-        </ul>
+        <Home />
       </main>
 
       <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs opacity-70">
