@@ -1,9 +1,11 @@
 import { Analytics } from '@vercel/analytics/react'
 import { useEffect } from 'react'
 import Builder from './components/Builder'
+import Dashboard from './components/Dashboard'
 import Panel from './components/Panel'
 import Home from './components/Home'
-import { specFromSearch } from './features/panelUrlCodec'
+import { CURATED_PACK } from './config/curatedPack'
+import { dashboardFromSearch, specFromSearch } from './features/panelUrlCodec'
 import { t } from './i18n/dictionaries'
 import { useAppStore } from './store/dashboardStore'
 
@@ -22,8 +24,29 @@ export default function App() {
   const setUiLang = useAppStore((s) => s.setUiLang)
   const setSelectedDataset = useAppStore((s) => s.setSelectedDataset)
   const setBuilderSpec = useAppStore((s) => s.setBuilderSpec)
+  const setDashboard = useAppStore((s) => s.setDashboard)
 
   useEffect(() => {
+    // El enlace manda sobre lo guardado: primero el dashboard (`?d=`,
+    // T11); si no, el panel suelto de M1 (`?p=`, T09b) — que sigue
+    // abriendo exactamente igual que cuando se creó.
+    const shared = dashboardFromSearch(window.location.search)
+    if (shared) {
+      setDashboard({
+        id: 'shared',
+        name: shared.name ?? 'Mi dashboard',
+        panels: shared.specs.map((spec, i) => ({
+          id: `shared-${i}`,
+          title: CURATED_PACK.find((c) => c.code === spec.dataset)?.titleEs ?? spec.dataset,
+          viz: 'line' as const,
+          spec,
+          rect: { x: 0, y: i, w: 1, h: 1 },
+        })),
+      })
+      setSelectedDataset(shared.specs[0].dataset)
+      setBuilderSpec(shared.specs[0])
+      return
+    }
     const spec = specFromSearch(window.location.search)
     if (spec) {
       setSelectedDataset(spec.dataset)
@@ -34,7 +57,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-5xl flex-col px-5 py-8">
+    <div className="mx-auto flex min-h-svh w-full max-w-7xl flex-col px-5 py-8">
       <header className="flex items-start justify-between gap-4 border-b border-white/10 pb-5">
         <div>
           <p className="text-2xl font-bold tracking-tight">EURO<span className="bg-[linear-gradient(135deg,#f97316,#ea580c)] bg-clip-text text-transparent">PIVOT</span></p>
@@ -68,6 +91,7 @@ export default function App() {
         <Home />
         <Builder />
         <Panel />
+        <Dashboard />
       </main>
 
       <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs opacity-70">

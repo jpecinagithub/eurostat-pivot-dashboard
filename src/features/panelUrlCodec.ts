@@ -41,6 +41,10 @@ function fromBase64Url(encoded: string): string {
 }
 
 export function encodePanelParam(spec: PivotSpec): string {
+  return PREFIX + toBase64Url(JSON.stringify(specToWire(spec)))
+}
+
+function specToWire(spec: PivotSpec): WireV1 {
   const wire: WireV1 = {
     v: 1,
     d: spec.dataset,
@@ -50,7 +54,44 @@ export function encodePanelParam(spec: PivotSpec): string {
     c: spec.columns,
   }
   if (spec.geoLevel === 'country') wire.g = 'country'
-  return PREFIX + toBase64Url(JSON.stringify(wire))
+  return wire
+}
+
+function wireToSpec(wire: Partial<WireV1>): PivotSpec | null {
+  if (wire.v !== 1) return null
+  if (typeof wire.d !== 'string' || wire.d.length === 0) return null
+  if (typeof wire.f !== 'object' || wire.f === null) return null
+  for (const codes of Object.values(wire.f)) {
+    if (!Array.isArray(codes) || !codes.every((c) => typeof c === 'string')) return null
+  }
+  if (!isTimeSelection(wire.t)) return null
+  if (!Array.isArray(wire.r) || !Array.isArray(wire.c)) return null
+  if (!wire.r.every((x) => typeof x === 'string') || !wire.c.every((x) => typeof x === 'string'))
+    return null
+  const spec: PivotSpec = {
+    dataset: wire.d,
+    lang: 'EN',
+    filters: wire.f,
+    time: wire.t,
+    rows: wire.r,
+    columns: wire.c,
+  }
+  if (wire.g === 'country') spec.geoLevel = 'country'
+  return spec
+}
+
+/** Validador estructural de una PivotSpec ya decodificada (persistencia). */
+export function isPivotSpecLike(value: unknown): value is PivotSpec {
+  if (typeof value !== 'object' || value === null) return false
+  const s = value as Partial<PivotSpec>
+  if (typeof s.dataset !== 'string' || s.dataset.length === 0) return false
+  if (typeof s.filters !== 'object' || s.filters === null) return false
+  for (const codes of Object.values(s.filters)) {
+    if (!Array.isArray(codes) || !codes.every((c) => typeof c === 'string')) return false
+  }
+  if (!isTimeSelection(s.time)) return false
+  if (!Array.isArray(s.rows) || !Array.isArray(s.columns)) return false
+  return true
 }
 
 export function buildPanelUrl(baseUrl: string, spec: PivotSpec): string {
@@ -75,25 +116,7 @@ export function decodePanelParam(param: string | null | undefined): PivotSpec | 
   try {
     const parsed: unknown = JSON.parse(fromBase64Url(param.slice(PREFIX.length)))
     if (typeof parsed !== 'object' || parsed === null) return null
-    const wire = parsed as Partial<WireV1>
-    if (wire.v !== 1) return null
-    if (typeof wire.d !== 'string' || wire.d.length === 0) return null
-    if (typeof wire.f !== 'object' || wire.f === null) return null
-    for (const codes of Object.values(wire.f)) {
-      if (!Array.isArray(codes) || !codes.every((c) => typeof c === 'string')) return null
-    }
-    if (!isTimeSelection(wire.t)) return null
-    if (!Array.isArray(wire.r) || !Array.isArray(wire.c)) return null
-    const spec: PivotSpec = {
-      dataset: wire.d,
-      lang: 'EN',
-      filters: wire.f,
-      time: wire.t,
-      rows: wire.r,
-      columns: wire.c,
-    }
-    if (wire.g === 'country') spec.geoLevel = 'country'
-    return spec
+    return wireToSpec(parsed as Partial<WireV1>)
   } catch {
     return null
   }
@@ -103,6 +126,71 @@ export function decodePanelParam(param: string | null | undefined): PivotSpec | 
 export function specFromSearch(search: string): PivotSpec | null {
   const params = new URLSearchParams(search)
   return decodePanelParam(params.get('p'))
+}
+
+// ---------------------------------------------------------------------
+// Codec de DASHBOARD (T11, RF-20): `?d=v1.<base64url>` con la colección
+// completa de paneles. Cada panel viaja en el MISMO WireV1 del codec de
+// un panel — por eso los enlaces `?p=` de M1 siguen abriendo tal cual
+// (compatibilidad verificada por test con el enlace real de M1) y un
+// dashboard de un solo panel es trivialmente convertible.
+
+interface WireDashboardV1 {
+  v: 1
+  name?: string
+  panels: WireV1[]
+}
+
+export interface DecodedDashboard {
+  name?: string
+  specs: PivotSpec[]
+}
+
+export function encodeDashboardParam(name: string | undefined, specs: PivotSpec[]): string {
+  const wire: WireDashboardV1 = { v: 1, panels: specs.map(specToWire) }
+  if (name) wire.name = name
+  return PREFIX + toBase64Url(JSON.stringify(wire))
+}
+
+export function buildDashboardUrl(
+  baseUrl: string,
+  name: string | undefined,
+  specs: PivotSpec[],
+): string {
+  const url = new URL(baseUrl)
+  url.searchParams.delete('p')
+  url.searchParams.set('d', encodeDashboardParam(name, specs))
+  return url.toString()
+}
+
+export function decodeDashboardParam(
+  param: string | null | undefined,
+): DecodedDashboard | null {
+  if (!param || !param.startsWith(PREFIX)) return null
+  try {
+    const parsed: unknown = JSON.parse(fromBase64Url(param.slice(PREFIX.length)))
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const wire = parsed as Partial<WireDashboardV1>
+    if (wire.v !== 1 || !Array.isArray(wire.panels) || wire.panels.length === 0) return null
+    const specs: PivotSpec[] = []
+    for (const p of wire.panels) {
+      const spec = wireToSpec(p as Partial<WireV1>)
+      if (!spec) return null // un panel corrupto invalida el enlace entero
+      specs.push(spec)
+    }
+    return {
+      name: typeof wire.name === 'string' ? wire.name : undefined,
+      specs,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Lee `?d=` de una query string y decodifica el dashboard completo. */
+export function dashboardFromSearch(search: string): DecodedDashboard | null {
+  const params = new URLSearchParams(search)
+  return decodeDashboardParam(params.get('d'))
 }
 
 /**
