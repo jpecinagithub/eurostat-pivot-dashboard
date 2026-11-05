@@ -357,7 +357,7 @@ export default function Builder() {
               >
                 {layoutDims.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.id}
+                    {dimLabelEs(d.id)}
                   </option>
                 ))}
               </select>
@@ -371,7 +371,7 @@ export default function Builder() {
               >
                 {layoutDims.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.id}
+                    {dimLabelEs(d.id)}
                   </option>
                 ))}
               </select>

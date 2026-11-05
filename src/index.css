@@ -42,6 +42,22 @@ input[type='checkbox'] {
   accent-color: var(--color-accent);
 }
 
+select {
+  background-color: var(--color-panel2);
+  color: var(--color-ink);
+}
+
+select option,
+select optgroup {
+  background-color: var(--color-panel);
+  color: var(--color-ink);
+}
+
+select option:checked {
+  background-color: var(--color-accent);
+  color: #fff;
+}
+
 ::selection {
   background: rgb(249 115 22 / 0.35);
 }
