@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CURATED_PACK } from '../config/curatedPack'
 import { fmtDateEs, packCardsWithMetadata, topThemes } from '../features/homeModel'
+import { M1_SPEC, buildPanelUrl } from '../features/panelUrlCodec'
 import { t, type UiLang } from '../i18n/dictionaries'
 import {
   filterByTheme,
@@ -72,6 +73,14 @@ export default function Home() {
   const uiLang = useAppStore((s) => s.uiLang)
   const selectedDataset = useAppStore((s) => s.selectedDataset)
   const setSelectedDataset = useAppStore((s) => s.setSelectedDataset)
+  const setBuilderSpec = useAppStore((s) => s.setBuilderSpec)
+
+  const openM1 = () => {
+    setSelectedDataset(M1_SPEC.dataset)
+    setBuilderSpec(M1_SPEC)
+    // La URL queda lista para copiar y compartir (prueba M1).
+    window.history.replaceState(null, '', buildPanelUrl(window.location.href, M1_SPEC))
+  }
 
   const [index, setIndex] = useState<CatalogueIndex | null>(null)
   const [indexError, setIndexError] = useState(false)
@@ -125,6 +134,18 @@ export default function Home() {
             {t(uiLang, 'home.loading')}
           </p>
         )}
+      </div>
+
+      {/* Acceso directo al hito M1 (T09b) */}
+      <div className="mt-6 rounded-xl border border-[#0b1f3a]/20 bg-[#0b1f3a]/5 p-4">
+        <button
+          type="button"
+          onClick={openM1}
+          className="rounded-md bg-[#0b1f3a] px-4 py-2 text-sm font-semibold text-white"
+        >
+          {t(uiLang, 'home.m1Button')}
+        </button>
+        <p className="mt-2 text-xs opacity-80">{t(uiLang, 'home.m1Note')}</p>
       </div>
 
       {/* Temas reales del catálogo */}

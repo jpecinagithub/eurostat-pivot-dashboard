@@ -3,6 +3,7 @@ import { CURATED_PACK } from '../config/curatedPack'
 import { fmtEs } from '../engine/derivedMetrics'
 import type { PivotTable } from '../engine/pivotEngine'
 import { buildPanelView } from '../features/panelModel'
+import { buildPanelUrl } from '../features/panelUrlCodec'
 import { t, type UiLang } from '../i18n/dictionaries'
 import { EurostatApiError, fetchDataset } from '../services/eurostatClient'
 import { parseJsonStat, type ParsedDataset } from '../services/jsonstatParser'
@@ -110,6 +111,7 @@ export default function Panel() {
   const [error, setError] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
   const [layout, setLayout] = useState<{ rows: string[]; columns: string[] } | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!spec) return
@@ -214,7 +216,7 @@ export default function Panel() {
 
           <LineChart table={view.table} />
 
-          <div className="mt-4 flex items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="button"
               className="rounded-md border bg-white px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-slate-50"
@@ -224,7 +226,27 @@ export default function Panel() {
             >
               {t(uiLang, 'panel.transpose')}
             </button>
+            <button
+              type="button"
+              className="rounded-md border bg-white px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-slate-50"
+              onClick={() => setShareUrl(buildPanelUrl(window.location.href, spec))}
+            >
+              {t(uiLang, 'panel.share')}
+            </button>
           </div>
+          {shareUrl && (
+            <div className="mt-2">
+              <input
+                type="text"
+                readOnly
+                value={shareUrl}
+                aria-label={t(uiLang, 'panel.share')}
+                className="w-full rounded-md border bg-slate-50 px-3 py-2 font-mono text-xs"
+                onFocus={(e) => e.target.select()}
+              />
+              <p className="mt-1 text-xs opacity-70">{t(uiLang, 'panel.shareHint')}</p>
+            </div>
+          )}
 
           <div className="mt-3 overflow-x-auto rounded-xl border bg-white shadow-sm">
             <table className="min-w-full text-sm">

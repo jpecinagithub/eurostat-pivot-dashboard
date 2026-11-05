@@ -1,7 +1,9 @@
 import { Analytics } from '@vercel/analytics/react'
+import { useEffect } from 'react'
 import Builder from './components/Builder'
 import Panel from './components/Panel'
 import Home from './components/Home'
+import { specFromSearch } from './features/panelUrlCodec'
 import { t } from './i18n/dictionaries'
 import { useAppStore } from './store/dashboardStore'
 
@@ -9,10 +11,27 @@ import { useAppStore } from './store/dashboardStore'
  * EUROPIVOT — cáscara: marca, propósito (C0), idioma y pie con la
  * atribución a Eurostat. La Home (buscador, temas, pack) es T07;
  * el constructor pivot llega en T08 y el hito M1 en T09b (SDD §5).
+ *
+ * Arranque desde enlace (T09b): si la URL trae `?p=` con una spec de
+ * panel válida, la app abre directamente ese panel — la prueba de
+ * «navegador limpio» de M1. Una URL manipulada decodifica a null y
+ * la app arranca normal, sin panel.
  */
 export default function App() {
   const uiLang = useAppStore((s) => s.uiLang)
   const setUiLang = useAppStore((s) => s.setUiLang)
+  const setSelectedDataset = useAppStore((s) => s.setSelectedDataset)
+  const setBuilderSpec = useAppStore((s) => s.setBuilderSpec)
+
+  useEffect(() => {
+    const spec = specFromSearch(window.location.search)
+    if (spec) {
+      setSelectedDataset(spec.dataset)
+      setBuilderSpec(spec)
+    }
+    // Solo al montar: el enlace de entrada manda una vez.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="mx-auto flex min-h-svh w-full max-w-5xl flex-col px-5 py-8">
