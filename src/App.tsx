@@ -1,0 +1,74 @@
+import { Analytics } from '@vercel/analytics/react'
+import { THEMES } from './config/themes'
+import { t } from './i18n/dictionaries'
+import { useAppStore } from './store/dashboardStore'
+
+/**
+ * EUROPIVOT — cáscara T01: marca, propósito (C0) y los 9 temas oficiales.
+ * La home completa con tarjetas de datasets llega en T07; el constructor
+ * pivot en T08 y el hito demostrable M1 en T09b (SDD §5).
+ */
+export default function App() {
+  const uiLang = useAppStore((s) => s.uiLang)
+  const setUiLang = useAppStore((s) => s.setUiLang)
+
+  return (
+    <div className="mx-auto flex min-h-svh w-full max-w-5xl flex-col px-5 py-8">
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-2xl font-bold tracking-tight">EUROPIVOT</p>
+          <p className="mt-1 max-w-xl text-sm opacity-80">{t(uiLang, 'app.tagline')}</p>
+        </div>
+        <div className="flex shrink-0 gap-1 text-sm" role="group" aria-label="Idioma / Language">
+          {(['es', 'en'] as const).map((lang) => (
+            <button
+              key={lang}
+              type="button"
+              onClick={() => setUiLang(lang)}
+              aria-pressed={uiLang === lang}
+              className={`rounded-md border px-2.5 py-1 uppercase ${
+                uiLang === lang ? 'bg-[#0b1f3a] font-semibold text-white' : 'bg-white'
+              }`}
+            >
+              {lang}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <main className="mt-10 flex-1">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          {t(uiLang, 'home.title')}
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed opacity-80">
+          {t(uiLang, 'app.scaffoldNote')}
+        </p>
+
+        <h2 className="mt-10 text-sm font-semibold tracking-wide uppercase opacity-70">
+          {t(uiLang, 'nav.themes')}
+        </h2>
+        <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {THEMES.map((theme) => (
+            <li key={theme.id} className="rounded-xl border bg-white p-4 shadow-sm">
+              <span className="text-sm font-medium">{uiLang === 'es' ? theme.es : theme.en}</span>
+            </li>
+          ))}
+        </ul>
+      </main>
+
+      <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-xs opacity-70">
+        <span>{t(uiLang, 'app.dataSource')} · EUROPIVOT</span>
+        <span>
+          {t(uiLang, 'app.author')} ·{' '}
+          <a className="underline" href="mailto:jpecina@gmail.com">
+            jpecina@gmail.com
+          </a>
+        </span>
+      </footer>
+
+      {/* Vercel Analytics: código integrado (RNF-03); la activación en el
+          dashboard de Vercel la hace Jon. */}
+      <Analytics />
+    </div>
+  )
+}

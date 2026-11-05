@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+
+/* EUROPIVOT — base mínima (T01). El sistema de diseño llega con las vistas. */
+@theme {
+  --color-ink: #0b1f3a;
+  --color-paper: #f7f8fa;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family:
+    system-ui,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
