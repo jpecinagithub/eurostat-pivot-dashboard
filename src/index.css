@@ -1,13 +1,25 @@
 @import 'tailwindcss';
 
-/* EUROPIVOT — base mínima (T01). El sistema de diseño llega con las vistas. */
+/*
+ * EUROPIVOT — sistema visual «Atlas» (a petición de Jon, 2026-11-05):
+ * el mismo lenguaje que atlas-proyectos.vercel.app — fondo azul noche
+ * #090c16, paneles #10142a/#151b38, borde blanco translúcido, texto
+ * #edf0f9, secundario #8f97b5 y acento naranja #f97316→#ea580c,
+ * radio 14px. Tokens extraídos del CSS real del Atlas.
+ */
 @theme {
-  --color-ink: #0b1f3a;
-  --color-paper: #f7f8fa;
+  --color-ink: #edf0f9;
+  --color-paper: #090c16;
+  --color-panel: #10142a;
+  --color-panel2: #151b38;
+  --color-muted-atlas: #8f97b5;
+  --color-accent: #f97316;
+  --color-accent2: #fb923c;
+  --default-border-color: rgb(255 255 255 / 0.08);
 }
 
 html {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
@@ -15,9 +27,21 @@ body {
   background: var(--color-paper);
   color: var(--color-ink);
   font-family:
+    ui-sans-serif,
     system-ui,
+    -apple-system,
     'Segoe UI',
     Roboto,
+    'Helvetica Neue',
+    Arial,
     sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+input[type='checkbox'] {
+  accent-color: var(--color-accent);
+}
+
+::selection {
+  background: rgb(249 115 22 / 0.35);
 }

@@ -27,13 +27,13 @@ function EntryRow({
   selected: boolean
 }) {
   return (
-    <li className="flex items-start justify-between gap-3 rounded-lg border bg-white px-3 py-2 shadow-sm">
+    <li className="flex items-start justify-between gap-3 rounded-lg border bg-[#10142a] px-3 py-2">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{entry.title}</p>
         <p className="mt-0.5 text-xs opacity-70">
           <code className="font-mono">{entry.code}</code>
           {PACK_CODES.has(entry.code) && (
-            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-900">
+            <span className="ml-2 rounded bg-[#34d399]/15 px-1.5 py-0.5 font-semibold text-[#34d399]">
               {t(lang, 'home.inPack')}
             </span>
           )}
@@ -54,7 +54,7 @@ function EntryRow({
         onClick={() => onSelect(entry.code)}
         aria-pressed={selected}
         className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium ${
-          selected ? 'bg-[#0b1f3a] text-white' : 'bg-white hover:bg-slate-50'
+          selected ? 'bg-[#f97316] text-white' : 'bg-[#10142a] hover:bg-[#151b38]'
         }`}
       >
         {selected ? t(lang, 'home.selected') : t(lang, 'home.openBuilder')}
@@ -127,7 +127,7 @@ export default function Home() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t(uiLang, 'home.searchPlaceholder')}
-          className="w-full rounded-xl border bg-white px-4 py-3 text-base shadow-sm outline-none focus:ring-2 focus:ring-[#0b1f3a]"
+          className="w-full rounded-xl border bg-[#10142a] px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[#f97316]"
         />
         {!index && !indexError && (
           <p className="mt-2 text-xs opacity-70" role="status">
@@ -137,11 +137,11 @@ export default function Home() {
       </div>
 
       {/* Acceso directo al hito M1 (T09b) */}
-      <div className="mt-6 rounded-xl border border-[#0b1f3a]/20 bg-[#0b1f3a]/5 p-4">
+      <div className="mt-6 rounded-xl border border-[#f97316]/25 bg-[linear-gradient(135deg,#141a36,#241a10)] p-4">
         <button
           type="button"
           onClick={openM1}
-          className="rounded-md bg-[#0b1f3a] px-4 py-2 text-sm font-semibold text-white"
+          className="rounded-md bg-[linear-gradient(135deg,#f97316,#ea580c)] px-4 py-2 text-sm font-semibold text-white"
         >
           {t(uiLang, 'home.m1Button')}
         </button>
@@ -158,7 +158,7 @@ export default function Home() {
                 onClick={() => setTheme(null)}
                 aria-pressed={theme === null}
                 className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                  theme === null ? 'bg-[#0b1f3a] text-white' : 'bg-white'
+                  theme === null ? 'bg-[#f97316] text-white' : 'bg-[#10142a]'
                 }`}
               >
                 {t(uiLang, 'home.themeAll')}
@@ -171,7 +171,7 @@ export default function Home() {
                   onClick={() => setTheme(th.name)}
                   aria-pressed={theme === th.name}
                   className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                    theme === th.name ? 'bg-[#0b1f3a] text-white' : 'bg-white'
+                    theme === th.name ? 'bg-[#f97316] text-white' : 'bg-[#10142a]'
                   }`}
                 >
                   {uiLang === 'es' ? th.labelEs : th.name} · {th.count.toLocaleString('es-ES')}
@@ -207,7 +207,7 @@ export default function Home() {
       )}
 
       {selectedDataset && (
-        <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+        <p className="mt-4 rounded-lg border border-[#fbbf24]/25 bg-[#fbbf24]/10 px-3 py-2 text-sm text-[#fcd34d]" role="status">
           <code className="font-mono font-semibold">{selectedDataset}</code> —{' '}
           {t(uiLang, 'home.builderSoon')}
         </p>
@@ -219,7 +219,7 @@ export default function Home() {
         <p className="mt-1 max-w-2xl text-sm opacity-80">{t(uiLang, 'home.packNote')}</p>
         <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {packCards.map((card) => (
-            <li key={card.code} className="flex flex-col rounded-xl border bg-white p-4 shadow-sm">
+            <li key={card.code} className="flex flex-col rounded-xl border bg-[#10142a] p-4">
               <p className="text-sm font-semibold">{card.titleEs}</p>
               <p className="mt-1 text-xs opacity-70">
                 <code className="font-mono">{card.code}</code> · {card.freq}
@@ -243,8 +243,8 @@ export default function Home() {
                 aria-pressed={selectedDataset === card.code}
                 className={`mt-3 rounded-md border px-3 py-1.5 text-xs font-medium ${
                   selectedDataset === card.code
-                    ? 'bg-[#0b1f3a] text-white'
-                    : 'bg-white hover:bg-slate-50'
+                    ? 'bg-[#f97316] text-white'
+                    : 'bg-[#10142a] hover:bg-[#151b38]'
                 }`}
               >
                 {selectedDataset === card.code

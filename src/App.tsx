@@ -35,9 +35,9 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-svh w-full max-w-5xl flex-col px-5 py-8">
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex items-start justify-between gap-4 border-b border-white/10 pb-5">
         <div>
-          <p className="text-2xl font-bold tracking-tight">EUROPIVOT</p>
+          <p className="text-2xl font-bold tracking-tight">EURO<span className="bg-[linear-gradient(135deg,#f97316,#ea580c)] bg-clip-text text-transparent">PIVOT</span></p>
           <p className="mt-1 max-w-xl text-sm opacity-80">{t(uiLang, 'app.tagline')}</p>
         </div>
         <div className="flex shrink-0 gap-1 text-sm" role="group" aria-label="Idioma / Language">
@@ -48,7 +48,7 @@ export default function App() {
               onClick={() => setUiLang(lang)}
               aria-pressed={uiLang === lang}
               className={`rounded-md border px-2.5 py-1 uppercase ${
-                uiLang === lang ? 'bg-[#0b1f3a] font-semibold text-white' : 'bg-white'
+                uiLang === lang ? 'bg-[#f97316] font-semibold text-white' : 'bg-[#10142a]'
               }`}
             >
               {lang}

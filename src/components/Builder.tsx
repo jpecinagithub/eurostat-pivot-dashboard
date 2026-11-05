@@ -38,7 +38,7 @@ function DimensionSection({
   const selected = state.selections[dim.id] ?? []
   const isGeo = dim.id === 'geo'
   return (
-    <fieldset className="rounded-xl border bg-white p-4 shadow-sm">
+    <fieldset className="rounded-xl border bg-[#10142a] p-4">
       <legend className="px-1 text-sm font-semibold">
         {dimLabelEs(dim.id)}{' '}
         <span className="font-mono text-[11px] font-normal opacity-50">{dim.id}</span>
@@ -56,7 +56,7 @@ function DimensionSection({
                 key={id}
                 type="button"
                 onClick={() => onPreset(id)}
-                className="rounded-full border px-2.5 py-1 text-xs font-medium hover:bg-slate-50"
+                className="rounded-full border px-2.5 py-1 text-xs font-medium hover:bg-[#151b38]"
               >
                 {t(uiLang, `builder.preset.${id}` as never)}
               </button>
@@ -108,7 +108,7 @@ function TimeSection({
   const uiLang = useAppStore((s) => s.uiLang)
   const periods = dim.categories.map((c) => c.code)
   return (
-    <fieldset className="rounded-xl border bg-white p-4 shadow-sm">
+    <fieldset className="rounded-xl border bg-[#10142a] p-4">
       <legend className="px-1 text-sm font-semibold">
         {t(uiLang, 'builder.timeMode')} (time)
       </legend>
@@ -301,7 +301,7 @@ export default function Builder() {
         </p>
       )}
       {error && (
-        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900" role="alert">
+        <p className="mt-3 rounded-lg border border-[#f87171]/25 bg-[#f87171]/10 px-3 py-2 text-sm text-[#fca5a5]" role="alert">
           {t(uiLang, 'builder.errorSchema')} {error}
         </p>
       )}
@@ -347,7 +347,7 @@ export default function Builder() {
               />
             ))}
 
-          <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-[#10142a] p-4">
             <label className="text-sm">
               {t(uiLang, 'builder.rows')}
               <select
@@ -378,7 +378,7 @@ export default function Builder() {
             </label>
             <button
               type="button"
-              className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+              className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[#151b38]"
               onClick={() =>
                 setState((s) =>
                   s ? { ...s, rows: s.columns, columns: s.rows } : s,
@@ -390,7 +390,7 @@ export default function Builder() {
           </div>
 
           {budget && (
-            <div className="rounded-xl border bg-white p-4 shadow-sm">
+            <div className="rounded-xl border bg-[#10142a] p-4">
               <p className="text-sm">
                 {t(uiLang, 'builder.estimate')}:{' '}
                 <strong>{budget.cells.toLocaleString('es-ES')}</strong>{' '}
@@ -408,7 +408,7 @@ export default function Builder() {
                   setBuilderSpec(toPivotSpec(selectedDataset, state))
                   setApplied(true)
                 }}
-                className="mt-3 rounded-md bg-[#0b1f3a] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="mt-3 rounded-md bg-[linear-gradient(135deg,#f97316,#ea580c)] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {t(uiLang, 'builder.apply')}
               </button>

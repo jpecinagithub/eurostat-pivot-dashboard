@@ -28,7 +28,7 @@ function labelFromSchema(parsed: ParsedDataset, dim: string, code: string): stri
 }
 import { useAppStore } from '../store/dashboardStore'
 
-const PALETTE = ['#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2']
+const PALETTE = ['#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f472b6', '#f97316', '#94a3b8']
 
 /**
  * Gráfico de líneas SVG propio (sin librería): series por fila cuando
@@ -55,7 +55,7 @@ function LineChart({ table }: { table: PivotTable }) {
     <figure className="mt-4">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full rounded-xl border bg-white shadow-sm"
+        className="w-full rounded-xl border bg-[#10142a]"
         role="img"
         aria-label={`Gráfico de líneas: ${table.rowKeys.map((k) => k.join(' ')).join(', ')}`}
       >
@@ -70,7 +70,7 @@ function LineChart({ table }: { table: PivotTable }) {
               key={rk.join()}
               points={points}
               fill="none"
-              stroke={isRef ? '#0b1f3a' : PALETTE[i % PALETTE.length]}
+              stroke={isRef ? '#fb923c' : PALETTE[i % PALETTE.length]}
               strokeWidth={isRef ? 2.5 : 1.8}
               strokeDasharray={isRef ? '6 4' : undefined}
             />
@@ -84,7 +84,7 @@ function LineChart({ table }: { table: PivotTable }) {
               aria-hidden
               className="mr-1 inline-block h-2 w-2 rounded-full"
               style={{
-                background: rk.includes('EU27_2020') ? '#0b1f3a' : PALETTE[i % PALETTE.length],
+                background: rk.includes('EU27_2020') ? '#fb923c' : PALETTE[i % PALETTE.length],
               }}
             />
             {rk.join(' · ')}
@@ -190,7 +190,7 @@ export default function Panel() {
         </p>
       )}
       {error !== null && (
-        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900" role="alert">
+        <p className="mt-3 rounded-lg border border-[#f87171]/25 bg-[#f87171]/10 px-3 py-2 text-sm text-[#fca5a5]" role="alert">
           {t(uiLang, errorKey(error) as never)}
         </p>
       )}
@@ -219,13 +219,13 @@ export default function Panel() {
           {(view.referenceLast || view.meanLast) && (
             <div className="mt-3 flex flex-wrap gap-3 text-sm">
               {view.referenceLast && (
-                <p className="rounded-lg bg-slate-100 px-3 py-2">
+                <p className="rounded-lg bg-[#151b38] px-3 py-2">
                   {view.referenceLast.label} ({view.lastPeriod}):{' '}
                   <strong>{fmtEs(view.referenceLast.value)}</strong>
                 </p>
               )}
               {view.meanLast && (
-                <p className="rounded-lg bg-amber-50 px-3 py-2">
+                <p className="rounded-lg border border-[#fbbf24]/25 bg-[#fbbf24]/10 px-3 py-2">
                   {view.meanLast.label} ({view.lastPeriod}):{' '}
                   <strong>{fmtEs(view.meanLast.value)}</strong> · n={view.meanLast.n}
                 </p>
@@ -238,7 +238,7 @@ export default function Panel() {
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="button"
-              className="rounded-md border bg-white px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-slate-50"
+              className="rounded-md border bg-[#10142a] px-3 py-1.5 text-xs font-medium hover:bg-[#151b38]"
               onClick={() =>
                 setLayout((l) => (l ? { rows: l.columns, columns: l.rows } : l))
               }
@@ -247,7 +247,7 @@ export default function Panel() {
             </button>
             <button
               type="button"
-              className="rounded-md border bg-white px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-slate-50"
+              className="rounded-md border bg-[#10142a] px-3 py-1.5 text-xs font-medium hover:bg-[#151b38]"
               onClick={() => setShareUrl(buildPanelUrl(window.location.href, spec))}
             >
               {t(uiLang, 'panel.share')}
@@ -260,17 +260,17 @@ export default function Panel() {
                 readOnly
                 value={shareUrl}
                 aria-label={t(uiLang, 'panel.share')}
-                className="w-full rounded-md border bg-slate-50 px-3 py-2 font-mono text-xs"
+                className="w-full rounded-md border bg-[#151b38] px-3 py-2 font-mono text-xs"
                 onFocus={(e) => e.target.select()}
               />
               <p className="mt-1 text-xs opacity-70">{t(uiLang, 'panel.shareHint')}</p>
             </div>
           )}
 
-          <div className="mt-3 overflow-x-auto rounded-xl border bg-white shadow-sm">
+          <div className="mt-3 overflow-x-auto rounded-xl border bg-[#10142a]">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 text-left">
+                <tr className="bg-[#151b38] text-left">
                   <th scope="col" className="px-3 py-2 font-semibold">
                     {view.table.rowDims.join(' · ')} \ {view.table.colDims.join(' · ')}
                   </th>
@@ -305,7 +305,7 @@ export default function Panel() {
                             {fmtEs(cell.value)}
                             {cell.status && (
                               <sup
-                                className="ml-0.5 text-[10px] text-amber-700"
+                                className="ml-0.5 text-[10px] text-[#fbbf24]"
                                 title={parsed.meta.statusLabels[cell.status] ?? cell.status}
                               >
                                 {cell.status}
@@ -325,7 +325,7 @@ export default function Panel() {
             <p className="mt-2 text-xs opacity-80">
               {[...usedFlags.entries()].map(([code, label]) => (
                 <span key={code} className="mr-3">
-                  <sup className="text-amber-700">{code}</sup> {label}
+                  <sup className="text-[#fbbf24]">{code}</sup> {label}
                 </span>
               ))}
             </p>
