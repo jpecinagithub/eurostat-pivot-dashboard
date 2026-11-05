@@ -141,16 +141,18 @@ puros) → `features` (modelos + codecs + persistencia) → `components`
   hueco registrado; traducirlas es trabajo incremental seguro.
 - **«EU trade with China» fuera del pack:** su fuente es Comext
   (códigos `DS-`), sin vía de esquema SDMX ESTAT para el constructor.
-- **Modo offline verificado por configuración, NO por comportamiento
-  (distinción señalada por Codex al revisar este traspaso):** los
-  13/13 E2E corren con el SW bloqueado por contexto; lo probado del
-  SW es su contenido (`dist/sw.js` y el servido en producción). La
-  prueba decisiva — abrir un panel con red, desconectar y recargar
-  con el SW activo — queda preparada en
-  `scripts/e2e-offline-live.mjs` y debe ejecutarse en un entorno
-  cuyo Chromium alcance ec.europa.eu (el de la VM del agente no
-  puede). Hasta que alguien la corra, la recuperación offline es
-  «implementada y configurada», no «demostrada».
+- **Modo offline: DEMOSTRADO en producción (2026-11-05, 22:23).**
+  Codex señaló al revisar este traspaso que el offline solo estaba
+  verificado por el contenido del SW (los 13/13 E2E corren con el
+  SW bloqueado por contexto) y ejecutó sin modificarla la prueba
+  decisiva `scripts/e2e-offline-live.mjs` en Chromium para
+  Windows: `OFFLINE LIVE: PASS`, salida 0. Alcance exacto de lo
+  demostrado: un panel M1 previamente consultado vuelve a abrirse
+  sin conexión con sus cifras y su contexto — la caché
+  `europivot-data` contenía la consulta exacta de `nama_10_pc`
+  (ES/FR/DE/UE) y la tabla sin red conservó España 2025 =
+  38.161,7 con su marca provisional, la unidad, el periodo
+  2016–2025, la fecha de actualización y la fuente Eurostat.
 - **Vercel Analytics:** código integrado; la activación en el panel de
   Vercel es manual de Jon.
 - **Conector Vercel del agente:** sin acceso de lectura a los

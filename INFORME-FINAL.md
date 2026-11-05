@@ -156,13 +156,18 @@ fetches internos de un SW no pasan por la interceptación de
 Playwright en esta versión — el SW se verifica por el contenido de
 `dist/sw.js`, que contiene las tres cachés runtime nuevas.
 
-**Pendiente de verificación conductual (revisión del traspaso,
-2026-11-05):** la recuperación offline está probada por el
-contenido del SW, no ejecutada de punta a punta — el E2E corre
-con el SW bloqueado. La prueba decisiva queda preparada en
-`scripts/e2e-offline-live.mjs` (panel con red → desconectar →
-recargar con el SW activo) para un entorno con salida real a
-Eurostat.
+**Verificación conductual del offline: DEMOSTRADA (2026-11-05,
+22:23).** La revisión del traspaso (Codex) señaló que la
+recuperación offline solo estaba probada por el contenido del
+SW, porque el E2E ordinario lo bloquea por contexto. Codex
+ejecutó sin modificarla la prueba decisiva
+`scripts/e2e-offline-live.mjs` en Chromium para Windows contra
+la producción: PASS 3/3, salida 0 — con red el panel M1 carga
+los datos reales; con el SW activo, la caché `europivot-data`
+contiene la consulta exacta de `nama_10_pc`; sin red, la
+recarga reconstruye la tabla con España 2025 = 38.161,7, su
+marca provisional, la unidad, el periodo, la actualización y
+la fuente Eurostat.
 
 **Estado:** EN PRODUCCIÓN el mismo día (2026-11-05, 19:31) —
 despliegue de Vercel desde el commit `8a111b8` verificado sobre la
